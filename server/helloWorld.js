@@ -1,13 +1,13 @@
 const express = require("express");
-const db = require("./db");
+const path = require("path");
+const publicController = require("./public/publicController");
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  res.send("Hello Mosca!");
-});
+app.use(express.static(path.join(__dirname)));
+app.use("/public", publicController);
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`Server listening on port ${port}`);
 });

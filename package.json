@@ -1,0 +1,11 @@
+{
+  "name": "psi-llm",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Monolithic build orchestrator for the psi-llm React + Express app.",
+  "scripts": {
+    "build:client": "npm --prefix client ci && npm --prefix client run build",
+    "build:server": "rm -rf server/dist && mkdir -p server/dist && cp -r server/helloWorld.js server/package.json server/package-lock.json server/public server/dist/",
+    "build:app": "npm run build:client && npm run build:server && cp -r client/dist/. server/dist/"
+  }
+}

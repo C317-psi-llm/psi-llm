@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GCP Architecture — VPC + NEG v3</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: sans-serif;
+      background: #ffffff;
+    }
+    svg { width: 100%; height: auto; display: block; }
+    .node { cursor: pointer; }
+    .node:hover { opacity: 0.85; }
+    .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+    .ts { font-size: 12px; font-family: sans-serif; fill: #5F5E5A; }
+    .th { font-size: 14px; font-weight: 500; font-family: sans-serif; }
+    .c-gray rect  { fill: #F1EFE8; stroke: #5F5E5A; }
+    .c-gray .th   { fill: #444441; }
+    .c-gray .ts   { fill: #5F5E5A; }
+    .c-blue rect  { fill: #E6F1FB; stroke: #185FA5; }
+    .c-blue .th   { fill: #0C447C; }
+    .c-blue .ts   { fill: #185FA5; }
+    .c-teal rect  { fill: #E1F5EE; stroke: #0F6E56; }
+    .c-teal .th   { fill: #085041; }
+    .c-teal .ts   { fill: #0F6E56; }
+    .c-purple rect { fill: #EEEDFE; stroke: #534AB7; }
+    .c-purple .th  { fill: #3C3489; }
+    .c-purple .ts  { fill: #534AB7; }
+    .c-amber rect { fill: #FAEEDA; stroke: #854F0B; }
+    .c-amber .th  { fill: #633806; }
+    .c-amber .ts  { fill: #854F0B; }
+    .border-secondary { stroke: #B4B2A9; }
+    .text-secondary   { fill: #5F5E5A; }
+    .text-tertiary    { fill: #888780; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a18; }
+      .ts { fill: #B4B2A9; }
+      .arr { stroke: #888780; }
+      .c-gray rect   { fill: #444441; stroke: #B4B2A9; }
+      .c-gray .th    { fill: #D3D1C7; }
+      .c-gray .ts    { fill: #B4B2A9; }
+      .c-blue rect   { fill: #0C447C; stroke: #85B7EB; }
+      .c-blue .th    { fill: #B5D4F4; }
+      .c-blue .ts    { fill: #85B7EB; }
+      .c-teal rect   { fill: #085041; stroke: #5DCAA5; }
+      .c-teal .th    { fill: #9FE1CB; }
+      .c-teal .ts    { fill: #5DCAA5; }
+      .c-purple rect { fill: #3C3489; stroke: #AFA9EC; }
+      .c-purple .th  { fill: #CECBF6; }
+      .c-purple .ts  { fill: #AFA9EC; }
+      .c-amber rect  { fill: #633806; stroke: #EF9F27; }
+      .c-amber .th   { fill: #FAC775; }
+      .c-amber .ts   { fill: #EF9F27; }
+      .border-secondary { stroke: #5F5E5A; }
+      .text-secondary   { fill: #B4B2A9; }
+      .text-tertiary    { fill: #888780; }
+    }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>GCP Architecture — VPC, Serverless NEG, Cloud Run</title>
+  <desc>Structural diagram showing client, HTTPS Load Balancer, Serverless NEG, Cloud Run inside a VPC with a dedicated private subnet containing Cloud SQL Postgres. VPC Access Connector shown as a label on the arrow from Cloud Run to Cloud SQL.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- CLIENT -->
+  <g class="node c-gray">
+    <rect x="230" y="20" width="220" height="44" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="38" text-anchor="middle" dominant-baseline="central">Browser / client</text>
+    <text class="ts" x="340" y="54" text-anchor="middle" dominant-baseline="central">HTTPS requests</text>
+  </g>
+
+  <line x1="340" y1="64" x2="340" y2="96" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- HTTPS LOAD BALANCER -->
+  <g class="node c-blue">
+    <rect x="190" y="98" width="300" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="118" text-anchor="middle" dominant-baseline="central">HTTPS load balancer</text>
+    <text class="ts" x="340" y="136" text-anchor="middle" dominant-baseline="central">SSL termination · URL map · forwarding rule</text>
+  </g>
+
+  <line x1="340" y1="154" x2="340" y2="186" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- SERVERLESS NEG -->
+  <g class="node c-blue">
+    <rect x="190" y="188" width="300" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="208" text-anchor="middle" dominant-baseline="central">Serverless NEG</text>
+    <text class="ts" x="340" y="226" text-anchor="middle" dominant-baseline="central">Backend service bridge to Cloud Run</text>
+  </g>
+
+  <line x1="340" y1="244" x2="340" y2="282" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- VPC OUTER CONTAINER -->
+  <rect x="30" y="270" width="620" height="310" rx="16" fill="none" class="border-secondary" stroke-width="1" stroke-dasharray="6 4"/>
+  <text class="ts text-secondary" x="50" y="290" dominant-baseline="central">VPC network</text>
+
+  <!-- CLOUD RUN REGION -->
+  <rect x="50" y="300" width="580" height="100" rx="12" fill="none" class="border-secondary" stroke-width="0.5" stroke-dasharray="4 3"/>
+  <text class="ts text-tertiary" x="68" y="318" dominant-baseline="central">Cloud Run · ingress: internal-and-cloud-load-balancing</text>
+
+  <g class="node c-teal">
+    <rect x="80" y="328" width="200" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="180" y="348" text-anchor="middle" dominant-baseline="central">Express backend</text>
+    <text class="ts" x="180" y="366" text-anchor="middle" dominant-baseline="central">API · serves React /static</text>
+  </g>
+
+  <g class="node c-teal">
+    <rect x="400" y="328" width="200" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="500" y="348" text-anchor="middle" dominant-baseline="central">React frontend</text>
+    <text class="ts" x="500" y="366" text-anchor="middle" dominant-baseline="central">Built · served by Express</text>
+  </g>
+
+  <line x1="280" y1="356" x2="398" y2="356" class="arr" marker-end="url(#arrow)"/>
+  <text class="ts text-tertiary" x="339" y="348" text-anchor="middle" dominant-baseline="central">serves</text>
+
+  <!-- PRIVATE SUBNET CONTAINER -->
+  <rect x="50" y="416" width="400" height="140" rx="12" fill="none" class="border-secondary" stroke-width="0.5" stroke-dasharray="4 3"/>
+  <text class="ts text-tertiary" x="68" y="434" dominant-baseline="central">Private subnet</text>
+
+  <!-- CLOUD SQL -->
+  <g class="node c-purple">
+    <rect x="80" y="448" width="240" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="200" y="468" text-anchor="middle" dominant-baseline="central">Cloud SQL (Postgres)</text>
+    <text class="ts" x="200" y="486" text-anchor="middle" dominant-baseline="central">No public IP · private IP only</text>
+  </g>
+
+  <!-- Arrow: Cloud Run → Cloud SQL via VPC Access Connector -->
+  <line x1="180" y1="384" x2="180" y2="446" class="arr" marker-end="url(#arrow)"/>
+  <text class="ts text-tertiary" x="192" y="418" dominant-baseline="central">VPC Access Connector</text>
+
+  <!-- ARTIFACT REGISTRY -->
+  <g class="node c-gray">
+    <rect x="474" y="428" width="168" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="558" y="448" text-anchor="middle" dominant-baseline="central">Artifact Registry</text>
+    <text class="ts" x="558" y="466" text-anchor="middle" dominant-baseline="central">Docker image · deploy</text>
+  </g>
+
+  <path d="M558 428 L558 370 L402 370" fill="none" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- GCS BUCKET -->
+  <g class="node c-amber">
+    <rect x="474" y="508" width="168" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="558" y="528" text-anchor="middle" dominant-baseline="central">GCS bucket</text>
+    <text class="ts" x="558" y="546" text-anchor="middle" dominant-baseline="central">Terraform remote state</text>
+  </g>
+
+  <!-- LEGEND -->
+  <line x1="44" y1="614" x2="64" y2="614" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts text-tertiary" x="70" y="618" dominant-baseline="central">deploy-time / Terraform managed</text>
+  <line x1="320" y1="614" x2="340" y2="614" class="arr" marker-end="url(#arrow)"/>
+  <text class="ts text-tertiary" x="346" y="618" dominant-baseline="central">runtime traffic</text>
+</svg>
+</body>
+</html>
