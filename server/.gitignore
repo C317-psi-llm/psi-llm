@@ -24,3 +24,7 @@ Thumbs.db
 
 # optional npm cache
 .npm
+
+.env
+.env.docker
+.agent.md
