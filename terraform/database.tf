@@ -30,7 +30,6 @@ resource "google_sql_database_instance" "postgres" {
 
   depends_on = [
     google_service_networking_connection.private_vpc_connection,
-    google_project_service.enabled,
   ]
 }
 
@@ -57,8 +56,6 @@ resource "google_secret_manager_secret" "db_password" {
   replication {
     auto {}
   }
-
-  depends_on = [google_project_service.enabled]
 }
 
 resource "google_secret_manager_secret_version" "db_password" {

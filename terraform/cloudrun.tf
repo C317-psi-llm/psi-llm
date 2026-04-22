@@ -68,7 +68,6 @@ resource "google_cloud_run_v2_service" "app" {
   }
 
   depends_on = [
-    google_project_service.enabled,
     google_secret_manager_secret_iam_member.runtime_db_password_access,
     google_artifact_registry_repository.app,
   ]

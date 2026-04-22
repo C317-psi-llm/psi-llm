@@ -7,8 +7,6 @@ resource "google_compute_network" "vpc" {
   name                    = "psi-llm-vpc"
   auto_create_subnetworks = false
   routing_mode            = "REGIONAL"
-
-  depends_on = [google_project_service.enabled]
 }
 
 resource "google_compute_subnetwork" "private" {
@@ -34,8 +32,6 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.vpc.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
-
-  depends_on = [google_project_service.enabled]
 }
 
 resource "google_vpc_access_connector" "connector" {
@@ -43,6 +39,4 @@ resource "google_vpc_access_connector" "connector" {
   region        = var.region
   network       = google_compute_network.vpc.name
   ip_cidr_range = local.vpc_connector_cidr
-
-  depends_on = [google_project_service.enabled]
 }
