@@ -1,0 +1,54 @@
+# resource "google_service_account" "github_actions" {
+#   account_id   = "github-actions-deploy"
+#   display_name = "GitHub Actions Deploy"
+
+#   depends_on = [google_project_service.enabled]
+# }
+
+# resource "google_iam_workload_identity_pool" "github" {
+#   workload_identity_pool_id = "github-pool"
+#   display_name              = "GitHub Actions"
+
+#   depends_on = [google_project_service.enabled]
+# }
+
+# TODO: Replace `your-org/psi-llm` with the real `<owner>/<repo>` slug of the
+# GitHub repository before applying. Both the attribute_condition below and the
+# principalSet member further down must be updated together.
+# resource "google_iam_workload_identity_pool_provider" "github" {
+#   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+#   workload_identity_pool_provider_id = "github-provider"
+#   display_name                       = "GitHub Actions Provider"
+
+#   oidc {
+#     issuer_uri = "https://token.actions.githubusercontent.com"
+#   }
+
+#   attribute_mapping = {
+#     "google.subject"       = "assertion.sub"
+#     "attribute.repository" = "assertion.repository"
+#   }
+
+#   attribute_condition = "assertion.repository == 'your-org/psi-llm'"
+# }
+
+# resource "google_service_account_iam_member" "github_wif" {
+#   service_account_id = google_service_account.github_actions.name
+#   role               = "roles/iam.workloadIdentityUser"
+#   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/your-org/psi-llm"
+# }
+
+# # Non-production: project-level editor on the deploy SA.
+# # TODO: Tighten to least-privilege roles before promoting to production.
+# resource "google_project_iam_member" "github_actions_editor" {
+#   project = var.project_id
+#   role    = "roles/editor"
+#   member  = "serviceAccount:${google_service_account.github_actions.email}"
+# }
+
+# # Required so the deploy SA can act as itself when deploying Cloud Run.
+# resource "google_service_account_iam_member" "github_actions_self_user" {
+#   service_account_id = google_service_account.github_actions.name
+#   role               = "roles/iam.serviceAccountUser"
+#   member             = "serviceAccount:${google_service_account.github_actions.email}"
+# }
