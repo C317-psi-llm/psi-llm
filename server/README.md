@@ -38,10 +38,8 @@ IMPORTANTE: foi adicionada uma tabela auxiliar `refresh_token` para suportar rot
 
 Como rodar localmente (development)
 
-1. Copie variáveis de ambiente:
-   ```bash
-   cp .env.example .env
-   ```
+1. Criar variáveis de ambiente
+
 2. Instale dependências:
    ```bash
    npm install
