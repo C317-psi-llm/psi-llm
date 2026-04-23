@@ -24,3 +24,5 @@ Thumbs.db
 
 # optional npm cache
 .npm
+
+.env
