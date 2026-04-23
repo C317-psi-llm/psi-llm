@@ -37,6 +37,13 @@ resource "google_project_iam_member" "github_actions_editor" {
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
 
+# Project Editor does not include reading secret values; CI Terraform needs this for secret versions.
+resource "google_project_iam_member" "github_actions_secret_manager" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
 # Required so the deploy SA can act as itself when deploying Cloud Run.
 resource "google_service_account_iam_member" "github_actions_self_user" {
   service_account_id = google_service_account.github_actions.name
