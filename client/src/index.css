@@ -1,2 +1,27 @@
 /* src/index.css */
 @import "tailwindcss";
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes xpPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgb(255 255 255 / 0);
+  }
+
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 28px rgb(255 255 255 / 0.35);
+  }
+}
