@@ -115,7 +115,7 @@ export default function Questionario() {
           {isFinished ? (
             <CompletionState
               onGoBack={handleGoBack}
-              onViewResults={() => navigate('/dashboard')}
+              onViewResults={() => navigate('/patient/dashboard')}
             />
           ) : (
             <QuestionStep

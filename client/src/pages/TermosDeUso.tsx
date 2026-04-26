@@ -37,7 +37,7 @@ export default function TermosDeUso() {
   function handleContinue() {
     if (acceptedTerms) {
       localStorage.setItem(termsAcceptedKey, 'true')
-      navigate('/')
+      navigate('/patient/home')
     }
   }
 

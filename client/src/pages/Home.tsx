@@ -26,21 +26,21 @@ const actionCards: ActionCardData[] = [
     id: 'check-in',
     title: 'Fazer Check-in',
     description: <>Responder question&aacute;rio de bem estar</>,
-    href: '/questionario',
+    href: '/patient/questionario',
     marker: '01',
   },
   {
     id: 'support-chat',
     title: 'Chat de apoio',
     description: 'Converse com o assistente IA',
-    href: '/chat',
+    href: '/patient/chat',
     marker: '02',
   },
   {
     id: 'insights',
     title: 'Insights',
     description: <>Ver recomenda&ccedil;&otilde;es personalizadas</>,
-    href: '/insights',
+    href: '/patient/insights',
     marker: '03',
   },
 ]
@@ -207,7 +207,7 @@ function LatestInsightCard() {
       </div>
 
       <Link
-        to="/insights"
+        to="/patient/insights"
         className="mt-6 inline-flex w-full items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-200 hover:border-blue-600 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:w-auto"
       >
         Ver todos os insights

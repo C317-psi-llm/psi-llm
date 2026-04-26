@@ -11,13 +11,27 @@ const profiles = [
   { id: 'manager', label: 'Gestor' },
 ]
 
+const profileHomeRoutes = {
+  patient: '/patient/home',
+  psychologist: '/psychologist/painel',
+  manager: '/manager/painel',
+}
+
 export default function Login() {
   const [selectedProfile, setSelectedProfile] = useState('patient')
   const navigate = useNavigate()
 
+  function handleSubmit(event) {
+    event.preventDefault()
+    navigate(profileHomeRoutes[selectedProfile])
+  }
+
   return (
     <AuthLayout>
-      <form className="w-full max-w-[400px] space-y-8 text-left">
+      <form
+        className="w-full max-w-[400px] space-y-8 text-left"
+        onSubmit={handleSubmit}
+      >
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold leading-tight text-gray-950">
             Bem-vindo a Mentis. Fa&ccedil;a login para ver as &uacute;ltimas

@@ -32,32 +32,32 @@ const defaultUser: SidebarUser = {
 
 const patientSidebarItems: SidebarItem[] = [
   {
-    href: '/',
+    href: '/patient/home',
     label: <>In&iacute;cio</>,
     icon: HomeIcon,
   },
   {
-    href: '/questionario',
+    href: '/patient/questionario',
     label: <>Question&aacute;rio</>,
     icon: ClipboardIcon,
   },
   {
-    href: '/dashboard',
+    href: '/patient/dashboard',
     label: 'Meu Dashboard',
     icon: ChartIcon,
   },
   {
-    href: '/insights',
+    href: '/patient/insights',
     label: 'Insights',
     icon: SparklesIcon,
   },
   {
-    href: '/chat',
+    href: '/patient/chat',
     label: 'Chat de Apoio',
     icon: ChatIcon,
   },
   {
-    href: '/gamificacao',
+    href: '/patient/gamificacao',
     label: <>Gamifica&ccedil;&atilde;o</>,
     icon: TrophyIcon,
   },
@@ -65,7 +65,7 @@ const patientSidebarItems: SidebarItem[] = [
 
 export default function Sidebar({
   brand = 'Mentis Tech',
-  brandHref = '/',
+  brandHref = '/patient/home',
   isOpen,
   items = patientSidebarItems,
   user = defaultUser,
@@ -124,7 +124,7 @@ function SidebarNavItem({ item, onClose }: SidebarNavItemProps) {
   return (
     <NavLink
       to={item.href}
-      end={item.href === '/'}
+      end={item.href === '/patient/home'}
       onClick={onClose}
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${
