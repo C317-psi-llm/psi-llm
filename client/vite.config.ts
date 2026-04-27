@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  base: '/psi-llm/',
   test: {
     environment: 'jsdom',
     globals: true,
