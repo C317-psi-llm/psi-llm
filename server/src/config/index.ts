@@ -20,4 +20,8 @@ export default {
     refreshTTLdays: toInt(process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS, 7),
   },
   bcryptSaltRounds: toInt(process.env.BCRYPT_SALT_ROUNDS, 10),
+  openRouter: {
+    apiKey: process.env.OPENROUTER_API_KEY || "",
+    model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+  },
 };
