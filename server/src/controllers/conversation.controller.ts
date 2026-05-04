@@ -30,6 +30,24 @@ export async function getConversation(req: Request, res: Response) {
   }
 }
 
+export async function getUserConversations(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const page = Number(req.query.page) || 1;
+    const data = await ConversationService.listForUser(
+      Number(id),
+      user.id_usuario,
+      page,
+    );
+    res.json(success(data));
+  } catch (err: any) {
+    res
+      .status(err.status || 500)
+      .json(fail(err.message || "Error listing conversations"));
+  }
+}
+
 export async function postMessage(req: Request, res: Response) {
   try {
     const user = (req as any).user;

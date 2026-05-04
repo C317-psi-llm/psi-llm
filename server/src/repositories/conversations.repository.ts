@@ -19,6 +19,19 @@ class ConversationsRepository {
     return db("conversa_ia").where({ id_conversa: id }).first();
   }
 
+  static async listByUser(id_usuario: number, page: number, limit: number) {
+    const offset = (page - 1) * limit;
+    const items = await db("conversa_ia")
+      .where({ id_usuario })
+      .orderBy("data_inicio", "desc")
+      .limit(limit)
+      .offset(offset);
+    const [{ count }] = await db("conversa_ia")
+      .where({ id_usuario })
+      .count<{ count: string }[]>("* as count");
+    return { items, page, limit, total: Number(count) };
+  }
+
   static async findConversationWithMessages(id: number) {
     const conversation = await this.findConversationById(id);
     if (!conversation) return null;

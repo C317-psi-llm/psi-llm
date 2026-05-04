@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 
 import Button from '../components/Button'
 import Input from '../components/Input'
+import Snackbar from '../components/Snackbar'
+import { api } from '../hooks/useApi'
+import { useLocalStorage } from '../hooks/useLocalStorage'
 import AuthLayout from '../layouts/AuthLayout'
 
 const profiles = [
@@ -19,11 +22,48 @@ const profileHomeRoutes = {
 
 export default function Login() {
   const [selectedProfile, setSelectedProfile] = useState('patient')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' })
+  const [, setAccessToken] = useLocalStorage('accessToken', null)
+  const [, setRefreshToken] = useLocalStorage('refreshToken', null)
+  const [, setUser] = useLocalStorage('user', null)
   const navigate = useNavigate()
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    navigate(profileHomeRoutes[selectedProfile])
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await api('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || !payload?.success) {
+        const message =
+          payload?.message || 'Nao foi possivel realizar o login.'
+        setSnackbar({ open: true, message })
+        return
+      }
+
+      const { accessToken, refreshToken, user } = payload.data
+      setAccessToken(accessToken)
+      setRefreshToken(refreshToken)
+      setUser(user)
+      navigate(profileHomeRoutes[selectedProfile])
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Erro inesperado ao realizar o login.'
+      setSnackbar({ open: true, message })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -72,6 +112,8 @@ export default function Login() {
             placeholder="Digite seu email"
             name="email"
             autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
           <Input
             label="Senha"
@@ -79,6 +121,8 @@ export default function Login() {
             placeholder="Digite sua senha"
             name="password"
             autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
           />
         </div>
 
@@ -101,8 +145,13 @@ export default function Login() {
         </div>
 
         <div className="space-y-3">
-          <Button type="submit" variant="primary" className="w-full">
-            Entrar
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
           </Button>
           <Button
             variant="secondary"
@@ -113,6 +162,13 @@ export default function Login() {
           </Button>
         </div>
       </form>
+
+      <Snackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        variant="error"
+        onClose={() => setSnackbar({ open: false, message: '' })}
+      />
     </AuthLayout>
   )
 }

@@ -1,8 +1,21 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { handleValidation } from "../middlewares/validate.middleware";
 
 export const idParamValidator = [
   param("id").isInt({ min: 1 }).withMessage("Invalid conversation id"),
+  handleValidation,
+];
+
+export const userIdParamValidator = [
+  param("id").isInt({ min: 1 }).withMessage("Invalid user id"),
+  handleValidation,
+];
+
+export const paginationQueryValidator = [
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("page must be a positive integer"),
   handleValidation,
 ];
 

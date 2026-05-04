@@ -54,6 +54,17 @@ class ConversationService {
     return data;
   }
 
+  static async listForUser(
+    id_usuario: number,
+    requesterId: number,
+    page: number,
+  ) {
+    if (id_usuario !== requesterId)
+      throw { status: 403, message: "Forbidden" };
+    const limit = 10;
+    return ConversationsRepository.listByUser(id_usuario, page, limit);
+  }
+
   static async handleIncomingMessage(params: {
     id_conversa: number;
     id_usuario: number;

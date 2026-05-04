@@ -13,10 +13,10 @@ output "artifact_registry_repository" {
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.app.repository_id}"
 }
 
-output "wif_provider_resource_name" {
-  description = "Full resource name of the Workload Identity provider. Use as the GitHub `WIF_PROVIDER` secret."
-  value       = google_iam_workload_identity_pool_provider.github.name
-}
+# output "wif_provider_resource_name" {
+#   description = "Full resource name of the Workload Identity provider. Use as the GitHub `WIF_PROVIDER` secret."
+#   value       = google_iam_workload_identity_pool_provider.github.name
+# }
 
 output "github_actions_sa_email" {
   description = "Email of the GitHub Actions deploy service account. Use as the GitHub `WIF_SERVICE_ACCOUNT` secret."
