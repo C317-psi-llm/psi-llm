@@ -1,43 +1,72 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../hooks/useApi";
 
-const termsAcceptedKey = 'mentis-terms-accepted'
+const termsAcceptedKey = "mentis-terms-accepted";
 
 const termsSections = [
   {
-    id: 'introduction',
+    id: "introduction",
     title: <>1. Introdu&ccedil;&atilde;o</>,
     content:
-      'A Mentis Tech oferece recursos digitais para apoiar o acompanhamento de bem-estar emocional. As informacoes exibidas na plataforma possuem carater informativo e nao substituem acompanhamento profissional.',
+      "A Mentis Tech oferece recursos digitais para apoiar o acompanhamento de bem-estar emocional. As informacoes exibidas na plataforma possuem carater informativo e nao substituem acompanhamento profissional.",
   },
   {
-    id: 'platform-use',
-    title: '2. Uso da plataforma',
+    id: "platform-use",
+    title: "2. Uso da plataforma",
     content:
-      'Ao utilizar a plataforma, voce concorda em fornecer informacoes verdadeiras e manter o uso adequado das funcionalidades. O acesso e pessoal e deve ser utilizado de forma responsavel.',
+      "Ao utilizar a plataforma, voce concorda em fornecer informacoes verdadeiras e manter o uso adequado das funcionalidades. O acesso e pessoal e deve ser utilizado de forma responsavel.",
   },
   {
-    id: 'privacy',
-    title: '3. Privacidade',
+    id: "privacy",
+    title: "3. Privacidade",
     content:
-      'Os dados informados sao tratados com cuidado e utilizados para melhorar sua experiencia dentro da plataforma. Medidas de seguranca sao aplicadas para proteger suas informacoes.',
+      "Os dados informados sao tratados com cuidado e utilizados para melhorar sua experiencia dentro da plataforma. Medidas de seguranca sao aplicadas para proteger suas informacoes.",
   },
   {
-    id: 'responsibilities',
-    title: '4. Responsabilidades',
+    id: "responsibilities",
+    title: "4. Responsabilidades",
     content:
-      'O usuario e responsavel pelas informacoes compartilhadas e pelas decisoes tomadas a partir dos conteudos apresentados. Em situacoes de urgencia, procure ajuda profissional imediatamente.',
+      "O usuario e responsavel pelas informacoes compartilhadas e pelas decisoes tomadas a partir dos conteudos apresentados. Em situacoes de urgencia, procure ajuda profissional imediatamente.",
   },
-]
+];
 
 export default function TermosDeUso() {
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
-  const navigate = useNavigate()
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const navigate = useNavigate();
+
+  // if already accepted on server, skip terms page
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api("/lgpd/status");
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        const accepted =
+          json?.data?.aceitou_lgpd ?? json?.aceitou_lgpd ?? false;
+        if (accepted) {
+          localStorage.setItem(termsAcceptedKey, "true");
+          navigate("/patient/home");
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [navigate]);
 
   function handleContinue() {
     if (acceptedTerms) {
-      localStorage.setItem(termsAcceptedKey, 'true')
-      navigate('/patient/home')
+      // Call backend to record LGPD acceptance when authenticated
+      api("/lgpd/accept", { method: "POST" }).then((res) => {
+        if (res.ok) {
+          localStorage.setItem(termsAcceptedKey, "true");
+          navigate("/patient/home");
+        } else {
+          // fallback: still store locally and navigate
+          localStorage.setItem(termsAcceptedKey, "true");
+          navigate("/patient/home");
+        }
+      });
     }
   }
 
@@ -85,5 +114,5 @@ export default function TermosDeUso() {
         </div>
       </section>
     </main>
-  )
+  );
 }

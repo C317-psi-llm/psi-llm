@@ -1,82 +1,151 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../hooks/useApi";
 
-import AnswerButton from '../components/AnswerButton'
-import DashboardCard from '../components/DashboardCard'
-import ProgressBar from '../components/ProgressBar'
-import DashboardLayout from '../layouts/DashboardLayout'
+import AnswerButton from "../components/AnswerButton";
+import DashboardCard from "../components/DashboardCard";
+import ProgressBar from "../components/ProgressBar";
+import DashboardLayout from "../layouts/DashboardLayout";
 
-const questions = [
-  'Como voc\u00ea avaliaria seu n\u00edvel de estresse hoje?',
-  'Como est\u00e1 sua qualidade de sono?',
-  'Voc\u00ea se sentiu ansioso hoje?',
-  'Seu n\u00edvel de energia est\u00e1 como?',
-  'Voc\u00ea conseguiu se concentrar bem?',
-]
+const storageKey = "mentis-questionario";
 
-const answerOptions = [
-  'Muito alto',
-  'Alto',
-  'Moderado',
-  'Baixo',
-  'Muito baixo',
-]
-
-const storageKey = 'mentis-questionario'
+const defaultOptionLabels = [
+  "Muito baixo",
+  "Baixo",
+  "Moderado",
+  "Alto",
+  "Muito alto",
+];
 
 export default function Questionario() {
+  const [questionnaire, setQuestionnaire] = useState<any | null>(null);
+  const [flattenQuestions, setFlattenQuestions] = useState<any[]>([]);
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(
     getInitialQuestionIndex,
-  )
-  const [answers, setAnswers] = useState<string[]>(getInitialAnswers)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const navigate = useNavigate()
+  );
+  const [answers, setAnswers] =
+    useState<Record<string, number>>(getInitialAnswers);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
 
-  const isFinished = currentQuestionIndex >= questions.length
+  const totalQuestions = flattenQuestions.length;
+  const isFinished =
+    currentQuestionIndex >= totalQuestions && totalQuestions > 0;
   const progressValue = isFinished
     ? 100
-    : ((currentQuestionIndex + 1) / questions.length) * 100
+    : totalQuestions === 0
+      ? 0
+      : ((currentQuestionIndex + 1) / totalQuestions) * 100;
   const progressLabel = isFinished
-    ? `${questions.length} de ${questions.length}`
-    : `${currentQuestionIndex + 1} de ${questions.length}`
-  const canGoBack = currentQuestionIndex > 0
+    ? `${totalQuestions} de ${totalQuestions}`
+    : `${Math.min(currentQuestionIndex + 1, totalQuestions)} de ${totalQuestions}`;
+  const canGoBack = currentQuestionIndex > 0;
 
+  // Persist progress
   useEffect(() => {
     localStorage.setItem(
       storageKey,
       JSON.stringify({
         answers,
         currentQuestionIndex,
+        questionnaireId: questionnaire?.id_questionario ?? null,
       }),
-    )
-  }, [answers, currentQuestionIndex])
+    );
+  }, [answers, currentQuestionIndex, questionnaire]);
 
-  function handleAnswerSelect(answer: string) {
-    if (isTransitioning) {
-      return
-    }
+  // Load questionnaires and structure
+  useEffect(() => {
+    (async () => {
+      try {
+        const listRes = await api("/questionnaires");
+        const listJson = await listRes.json().catch(() => null);
+        const questionnaires = listJson?.data ?? [];
+        const id =
+          questionnaires[0]?.id_questionario ?? questionnaires[0]?.id ?? 1;
 
-    setIsTransitioning(true)
+        const res = await api(`/questionnaires/${id}`);
+        if (!res.ok) {
+          console.error("Failed to fetch questionnaire", await res.text());
+          return;
+        }
+        const json = await res.json();
+        const q = json?.data ?? json;
+        setQuestionnaire(q);
 
-    setAnswers((currentAnswers) => {
-      const nextAnswers = [...currentAnswers]
-      nextAnswers[currentQuestionIndex] = answer
-      return nextAnswers
-    })
+        // normalize structure
+        const structure =
+          typeof q?.estrutura_json === "string"
+            ? JSON.parse(q.estrutura_json)
+            : q?.estrutura_json;
+        const flat: any[] = [];
+        for (const section of structure?.sections || []) {
+          for (const ques of section.questions || []) {
+            flat.push({
+              ...ques,
+              sectionTitle: section.title,
+            });
+          }
+        }
+        setFlattenQuestions(flat);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
+  // When questionnaire is finished, submit to backend
+  useEffect(() => {
+    if (!isFinished || submitted || isSubmitting) return;
+    (async () => {
+      setIsSubmitting(true);
+      try {
+        const id = questionnaire?.id_questionario ?? questionnaire?.id ?? 1;
+
+        const res = await api(`/questionnaires/${id}/response`, {
+          method: "POST",
+          body: JSON.stringify({ responses: answers }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          console.error("Failed to submit questionnaire", err);
+          alert("Erro ao enviar respostas. Elas foram salvas localmente.");
+        } else {
+          localStorage.removeItem(storageKey);
+          setSubmitted(true);
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Erro ao enviar respostas. Elas foram salvas localmente.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
+  }, [isFinished, submitted, isSubmitting, answers, questionnaire]);
+
+  function handleAnswerSelect(value: number) {
+    if (isTransitioning) return;
+
+    setIsTransitioning(true);
+
+    const currentQuestion = flattenQuestions[currentQuestionIndex];
+    if (!currentQuestion) return;
+
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
 
     window.setTimeout(() => {
-      setCurrentQuestionIndex((index) => index + 1)
-      setIsTransitioning(false)
-    }, 420)
+      setCurrentQuestionIndex((index) => index + 1);
+      setIsTransitioning(false);
+    }, 420);
   }
 
   function handleGoBack() {
-    if (!canGoBack || isTransitioning) {
-      return
-    }
-
-    setIsTransitioning(false)
-    setCurrentQuestionIndex((index) => Math.max(index - 1, 0))
+    if (!canGoBack || isTransitioning) return;
+    setIsTransitioning(false);
+    setCurrentQuestionIndex((index) => Math.max(index - 1, 0));
   }
 
   return (
@@ -84,10 +153,10 @@ export default function Questionario() {
       <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-3xl flex-col justify-center space-y-8">
         <header className="text-center">
           <h1 className="text-3xl font-semibold tracking-tight text-gray-950">
-            Check-in de Bem-estar
+            {questionnaire?.titulo ?? "Check-in de Bem-estar"}
           </h1>
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            Leva menos de 2 minutos
+            {questionnaire?.descricao ?? "Leva menos de 2 minutos"}
           </p>
         </header>
 
@@ -115,7 +184,7 @@ export default function Questionario() {
           {isFinished ? (
             <CompletionState
               onGoBack={handleGoBack}
-              onViewResults={() => navigate('/patient/dashboard')}
+              onViewResults={() => navigate("/patient/dashboard")}
             />
           ) : (
             <QuestionStep
@@ -124,50 +193,53 @@ export default function Questionario() {
               currentQuestionIndex={currentQuestionIndex}
               isTransitioning={isTransitioning}
               onSelectAnswer={handleAnswerSelect}
+              question={flattenQuestions[currentQuestionIndex]}
             />
           )}
         </DashboardCard>
       </div>
     </DashboardLayout>
-  )
+  );
 }
 
 type QuestionStepProps = {
-  answers: string[]
-  currentQuestionIndex: number
-  isTransitioning: boolean
-  onSelectAnswer: (answer: string) => void
-}
+  answers: Record<string, number>;
+  currentQuestionIndex: number;
+  isTransitioning: boolean;
+  onSelectAnswer: (value: number) => void;
+  question?: any;
+};
 
 function QuestionStep({
   answers,
   currentQuestionIndex,
   isTransitioning,
   onSelectAnswer,
+  question,
 }: QuestionStepProps) {
-  const selectedAnswer = answers[currentQuestionIndex]
+  const selectedValue = question ? answers[question.id] : undefined;
 
   return (
     <div
       className={`mt-10 transition duration-300 ${
         isTransitioning
-          ? 'translate-y-2 opacity-40'
-          : 'translate-y-0 animate-[fadeIn_220ms_ease-out] opacity-100'
+          ? "translate-y-2 opacity-40"
+          : "translate-y-0 animate-[fadeIn_220ms_ease-out] opacity-100"
       }`}
     >
       <h2 className="mx-auto max-w-2xl text-center text-2xl font-semibold leading-tight text-gray-950">
-        {questions[currentQuestionIndex]}
+        {question?.text ?? "..."}
       </h2>
 
       <div className="mt-8 grid gap-3">
-        {answerOptions.map((option) => (
+        {defaultOptionLabels.map((label, idx) => (
           <AnswerButton
-            key={option}
+            key={label}
             disabled={isTransitioning}
-            isSelected={selectedAnswer === option}
-            onClick={() => onSelectAnswer(option)}
+            isSelected={selectedValue === idx}
+            onClick={() => onSelectAnswer(idx)}
           >
-            {option}
+            {label}
           </AnswerButton>
         ))}
       </div>
@@ -180,13 +252,13 @@ function QuestionStep({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 type CompletionStateProps = {
-  onGoBack: () => void
-  onViewResults: () => void
-}
+  onGoBack: () => void;
+  onViewResults: () => void;
+};
 
 function CompletionState({ onGoBack, onViewResults }: CompletionStateProps) {
   return (
@@ -218,41 +290,42 @@ function CompletionState({ onGoBack, onViewResults }: CompletionStateProps) {
         </button>
       </div>
     </div>
-  )
+  );
 }
 
 function getStoredQuestionario() {
-  const storedValue = localStorage.getItem(storageKey)
+  const storedValue = localStorage.getItem(storageKey);
 
   if (!storedValue) {
-    return null
+    return null;
   }
 
   try {
     return JSON.parse(storedValue) as {
-      answers?: string[]
-      currentQuestionIndex?: number
-    }
+      answers?: Record<string, number>;
+      currentQuestionIndex?: number;
+      questionnaireId?: number | null;
+    };
   } catch {
-    return null
+    return null;
   }
 }
 
 function getInitialAnswers() {
-  const storedQuestionario = getStoredQuestionario()
+  const storedQuestionario = getStoredQuestionario();
 
-  return Array.isArray(storedQuestionario?.answers)
-    ? storedQuestionario.answers
-    : []
+  return (
+    (storedQuestionario?.answers as Record<string, number> | undefined) ?? {}
+  );
 }
 
 function getInitialQuestionIndex() {
-  const storedQuestionario = getStoredQuestionario()
-  const storedIndex = storedQuestionario?.currentQuestionIndex
+  const storedQuestionario = getStoredQuestionario();
+  const storedIndex = storedQuestionario?.currentQuestionIndex;
 
-  if (typeof storedIndex !== 'number') {
-    return 0
+  if (typeof storedIndex !== "number") {
+    return 0;
   }
 
-  return Math.min(Math.max(storedIndex, 0), questions.length)
+  return Math.max(storedIndex, 0);
 }

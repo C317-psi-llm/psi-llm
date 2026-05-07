@@ -18,7 +18,6 @@ router.post(
   "/:id/response",
   authenticate,
   requireLgpdAccepted,
-  authorize("funcionario"),
   submitResponseValidator,
   submitResponse,
 );

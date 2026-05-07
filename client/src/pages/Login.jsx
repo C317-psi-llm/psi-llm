@@ -1,68 +1,82 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import Button from '../components/Button'
-import Input from '../components/Input'
-import Snackbar from '../components/Snackbar'
-import { api } from '../hooks/useApi'
-import { useLocalStorage } from '../hooks/useLocalStorage'
-import AuthLayout from '../layouts/AuthLayout'
+import Button from "../components/Button";
+import Input from "../components/Input";
+import Snackbar from "../components/Snackbar";
+import { api } from "../hooks/useApi";
+import { useLocalStorage } from "../hooks/useLocalStorage";
+import AuthLayout from "../layouts/AuthLayout";
 
 const profiles = [
-  { id: 'patient', label: 'Paciente' },
-  { id: 'psychologist', label: <>Psic&oacute;logo</> },
-  { id: 'manager', label: 'Gestor' },
-]
+  { id: "patient", label: "Paciente" },
+  { id: "psychologist", label: <>Psic&oacute;logo</> },
+  { id: "manager", label: "Gestor" },
+];
 
 const profileHomeRoutes = {
-  patient: '/patient/home',
-  psychologist: '/psychologist/painel',
-  manager: '/manager/painel',
-}
+  patient: "/patient/home",
+  psychologist: "/psychologist/painel",
+  manager: "/manager/painel",
+};
 
 export default function Login() {
-  const [selectedProfile, setSelectedProfile] = useState('patient')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' })
-  const [, setAccessToken] = useLocalStorage('accessToken', null)
-  const [, setRefreshToken] = useLocalStorage('refreshToken', null)
-  const [, setUser] = useLocalStorage('user', null)
-  const navigate = useNavigate()
+  const [selectedProfile, setSelectedProfile] = useState("patient");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "" });
+  const [, setAccessToken] = useLocalStorage("accessToken", null);
+  const [, setRefreshToken] = useLocalStorage("refreshToken", null);
+  const [, setUser] = useLocalStorage("user", null);
+  const navigate = useNavigate();
 
   async function handleSubmit(event) {
-    event.preventDefault()
-    if (isSubmitting) return
+    event.preventDefault();
+    if (isSubmitting) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const response = await api('/auth/login', {
-        method: 'POST',
+      const response = await api("/auth/login", {
+        method: "POST",
         body: JSON.stringify({ email, password }),
-      })
-      const payload = await response.json().catch(() => null)
+      });
+      const payload = await response.json().catch(() => null);
 
       if (!response.ok || !payload?.success) {
         const message =
-          payload?.message || 'Nao foi possivel realizar o login.'
-        setSnackbar({ open: true, message })
-        return
+          payload?.message || "Nao foi possivel realizar o login.";
+        setSnackbar({ open: true, message });
+        return;
       }
 
-      const { accessToken, refreshToken, user } = payload.data
-      setAccessToken(accessToken)
-      setRefreshToken(refreshToken)
-      setUser(user)
-      navigate(profileHomeRoutes[selectedProfile])
+      const { accessToken, refreshToken, user } = payload.data;
+      setAccessToken(accessToken);
+      setRefreshToken(refreshToken);
+      setUser(user);
+
+      // after storing tokens, check LGPD acceptance and redirect accordingly
+      try {
+        const lgpdRes = await api("/lgpd/status");
+        const lgpdJson = await lgpdRes.json().catch(() => null);
+        const accepted =
+          lgpdJson?.data?.aceitou_lgpd ?? lgpdJson?.aceitou_lgpd ?? false;
+        if (!accepted) {
+          navigate("/termos");
+        } else {
+          navigate(profileHomeRoutes[selectedProfile]);
+        }
+      } catch (e) {
+        navigate(profileHomeRoutes[selectedProfile]);
+      }
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
-          : 'Erro inesperado ao realizar o login.'
-      setSnackbar({ open: true, message })
+          : "Erro inesperado ao realizar o login.";
+      setSnackbar({ open: true, message });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -85,7 +99,7 @@ export default function Login() {
           </span>
           <div className="flex flex-wrap gap-2">
             {profiles.map((profile) => {
-              const isActive = selectedProfile === profile.id
+              const isActive = selectedProfile === profile.id;
 
               return (
                 <button
@@ -94,13 +108,13 @@ export default function Login() {
                   onClick={() => setSelectedProfile(profile.id)}
                   className={`rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
                   {profile.label}
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -151,12 +165,12 @@ export default function Login() {
             className="w-full"
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Entrando...' : 'Entrar'}
+            {isSubmitting ? "Entrando..." : "Entrar"}
           </Button>
           <Button
             variant="secondary"
             className="w-full"
-            onClick={() => navigate('/register')}
+            onClick={() => navigate("/register")}
           >
             Cadastrar
           </Button>
@@ -167,8 +181,8 @@ export default function Login() {
         open={snackbar.open}
         message={snackbar.message}
         variant="error"
-        onClose={() => setSnackbar({ open: false, message: '' })}
+        onClose={() => setSnackbar({ open: false, message: "" })}
       />
     </AuthLayout>
-  )
+  );
 }
