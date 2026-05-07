@@ -62,7 +62,7 @@ class QuestionnaireService {
       4;
     const classificacao_geral = this.classificationFromAverage(pontuacao_total);
 
-    const [id] = await db("resposta_questionario")
+    const [{ id_resposta_questionario }] = await db("resposta_questionario")
       .insert({
         id_usuario,
         id_questionario,
@@ -78,7 +78,7 @@ class QuestionnaireService {
       .returning("id_resposta_questionario");
 
     return db("resposta_questionario")
-      .where({ id_resposta_questionario: id })
+      .where({ id_resposta_questionario })
       .first();
   }
 
