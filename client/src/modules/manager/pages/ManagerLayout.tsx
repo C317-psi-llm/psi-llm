@@ -12,11 +12,6 @@ type ManagerLayoutProps = {
   title?: string
 }
 
-const managerUser = {
-  name: 'Gestora Helena',
-  email: 'gestao@mentis.com',
-}
-
 export default function ManagerLayout({ children, title }: ManagerLayoutProps) {
   return (
     <DashboardLayout
@@ -24,7 +19,6 @@ export default function ManagerLayout({ children, title }: ManagerLayoutProps) {
       brandHref="/manager/painel"
       sidebarItems={managerSidebarItems}
       title={title}
-      user={managerUser}
     >
       {children}
     </DashboardLayout>

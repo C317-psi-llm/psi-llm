@@ -1,5 +1,9 @@
-import type { ComponentType, ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useState, type ComponentType, type ReactNode } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+
+import { clearSession, getRefreshToken, getStoredUser } from '../auth/auth'
+import { api } from '../hooks/useApi'
+import ConfirmModal from './ConfirmModal'
 
 type IconProps = {
   className?: string
@@ -25,9 +29,14 @@ type SidebarProps = {
   onClose: () => void
 }
 
-const defaultUser: SidebarUser = {
-  name: 'Ana Silva',
-  email: 'ana@empresa.com',
+function resolveSidebarUser(user?: SidebarUser): SidebarUser {
+  if (user) return user
+
+  const stored = getStoredUser()
+  return {
+    name: stored?.nome ?? 'Usuario',
+    email: stored?.email ?? '',
+  }
 }
 
 const patientSidebarItems: SidebarItem[] = [
@@ -68,9 +77,11 @@ export default function Sidebar({
   brandHref = '/patient/home',
   isOpen,
   items = patientSidebarItems,
-  user = defaultUser,
+  user,
   onClose,
 }: SidebarProps) {
+  const resolvedUser = resolveSidebarUser(user)
+
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-gray-200 bg-gray-50 transition-transform duration-200 md:translate-x-0 ${
@@ -88,7 +99,7 @@ export default function Sidebar({
         ))}
       </nav>
 
-      <SidebarUserCard user={user} />
+      <SidebarUserCard user={resolvedUser} />
     </aside>
   )
 }
@@ -153,14 +164,53 @@ type SidebarUserCardProps = {
 }
 
 function SidebarUserCard({ user }: SidebarUserCardProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    const refreshToken = getRefreshToken()
+
+    try {
+      await api('/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      })
+    } catch {
+      // logout should always succeed locally
+    }
+
+    clearSession()
+    setConfirmOpen(false)
+    navigate('/login', { replace: true })
+  }
+
   return (
     <div className="border-t border-gray-200 px-4 py-5">
-      <div className="rounded-lg bg-white px-3 py-3 shadow-sm">
-        <p className="truncate text-sm font-semibold text-gray-950">
-          {user.name}
-        </p>
-        <p className="mt-0.5 truncate text-xs text-gray-500">{user.email}</p>
+      <div className="flex items-center gap-3 rounded-lg bg-white px-3 py-3 shadow-sm">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-gray-950">
+            {user.name}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-gray-500">{user.email}</p>
+        </div>
+
+        <button
+          type="button"
+          aria-label="Sair"
+          onClick={() => setConfirmOpen(true)}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors duration-200 hover:bg-gray-100 hover:text-gray-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        >
+          <LogoutIcon className="h-5 w-5" />
+        </button>
       </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title="Sair da conta"
+        description="Tem certeza que deseja sair?"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   )
 }
@@ -269,6 +319,25 @@ function TrophyIcon({ className = '' }: IconProps) {
     >
       <path
         d="M8 4h8v4a4 4 0 0 1-8 0V4Zm4 8v4m-3 4h6m-8 0h10M8 6H5a2 2 0 0 0 2 4m9-4h3a2 2 0 0 1-2 4"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function LogoutIcon({ className = '' }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M15 12H4m0 0 3-3m-3 3 3 3m4-9h6a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-6"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"

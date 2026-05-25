@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { roleHomeRoute } from "../auth/auth";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import Snackbar from "../components/Snackbar";
@@ -8,20 +9,7 @@ import { api } from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import AuthLayout from "../layouts/AuthLayout";
 
-const profiles = [
-  { id: "patient", label: "Paciente" },
-  { id: "psychologist", label: <>Psic&oacute;logo</> },
-  { id: "manager", label: "Gestor" },
-];
-
-const profileHomeRoutes = {
-  patient: "/patient/home",
-  psychologist: "/psychologist/pacientes",
-  manager: "/manager/painel",
-};
-
 export default function Login() {
-  const [selectedProfile, setSelectedProfile] = useState("patient");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,6 +43,8 @@ export default function Login() {
       setRefreshToken(refreshToken);
       setUser(user);
 
+      const homeRoute = roleHomeRoute(user.papel);
+
       // after storing tokens, check LGPD acceptance and redirect accordingly
       try {
         const lgpdRes = await api("/lgpd/status");
@@ -64,10 +54,10 @@ export default function Login() {
         if (!accepted) {
           navigate("/termos");
         } else {
-          navigate(profileHomeRoutes[selectedProfile]);
+          navigate(homeRoute);
         }
       } catch (e) {
-        navigate(profileHomeRoutes[selectedProfile]);
+        navigate(homeRoute);
       }
     } catch (err) {
       const message =
@@ -91,32 +81,6 @@ export default function Login() {
             Bem-vindo a Mentis. Fa&ccedil;a login para ver as &uacute;ltimas
             atualiza&ccedil;&otilde;es.
           </h1>
-        </div>
-
-        <div className="space-y-3">
-          <span className="block text-sm font-medium text-gray-700">
-            Perfil
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {profiles.map((profile) => {
-              const isActive = selectedProfile === profile.id;
-
-              return (
-                <button
-                  key={profile.id}
-                  type="button"
-                  onClick={() => setSelectedProfile(profile.id)}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
-                    isActive
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {profile.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         <div className="space-y-6">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../hooks/useApi";
+import { getStoredUser, roleHomeRoute } from "../auth/auth";
 
 const termsAcceptedKey = "mentis-terms-accepted";
 
@@ -34,6 +35,7 @@ const termsSections = [
 export default function TermosDeUso() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
+  const homeRoute = roleHomeRoute(getStoredUser()?.papel);
 
   // if already accepted on server, skip terms page
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function TermosDeUso() {
           json?.data?.aceitou_lgpd ?? json?.aceitou_lgpd ?? false;
         if (accepted) {
           localStorage.setItem(termsAcceptedKey, "true");
-          navigate("/patient/home");
+          navigate(homeRoute);
         }
       } catch (e) {
         // ignore
@@ -60,11 +62,11 @@ export default function TermosDeUso() {
       api("/lgpd/accept", { method: "POST" }).then((res) => {
         if (res.ok) {
           localStorage.setItem(termsAcceptedKey, "true");
-          navigate("/patient/home");
+          navigate(homeRoute);
         } else {
           // fallback: still store locally and navigate
           localStorage.setItem(termsAcceptedKey, "true");
-          navigate("/patient/home");
+          navigate(homeRoute);
         }
       });
     }

@@ -12,11 +12,6 @@ type PsychologistLayoutProps = {
   title?: string
 }
 
-const psychologistUser = {
-  name: 'Dra. Renata',
-  email: 'renata@mentis.com',
-}
-
 export default function PsychologistLayout({
   children,
   title,
@@ -27,7 +22,6 @@ export default function PsychologistLayout({
       brandHref="/psychologist/painel"
       sidebarItems={psychologistSidebarItems}
       title={title}
-      user={psychologistUser}
     >
       {children}
     </DashboardLayout>
