@@ -61,6 +61,12 @@ class ConversationsRepository {
     const id_mensagem = typeof id === "object" ? id.id_mensagem : id;
     return db("mensagem").where({ id_mensagem }).first();
   }
+
+  static async listByUsuarioOrdered(id_usuario: number) {
+    return db("conversa_ia")
+      .where({ id_usuario })
+      .orderBy("data_inicio", "desc");
+  }
 }
 
 export default ConversationsRepository;

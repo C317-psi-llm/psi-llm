@@ -16,7 +16,7 @@ const profiles = [
 
 const profileHomeRoutes = {
   patient: "/patient/home",
-  psychologist: "/psychologist/painel",
+  psychologist: "/psychologist/pacientes",
   manager: "/manager/painel",
 };
 

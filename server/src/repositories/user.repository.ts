@@ -26,6 +26,21 @@ class UserRepository {
       .where({ id_usuario: id })
       .update({ ultimo_acesso: db.fn.now() });
   }
+
+  static async listByPsicologo(id_psicologo: number) {
+    return db("usuario")
+      .where({ id_psicologo, papel: "funcionario" })
+      .select("id_usuario", "nome", "email", "status");
+  }
+
+  static async findAssignedFuncionario(
+    id_usuario: number,
+    id_psicologo: number,
+  ) {
+    return db("usuario")
+      .where({ id_usuario, id_psicologo, papel: "funcionario" })
+      .first();
+  }
 }
 
 export default UserRepository;

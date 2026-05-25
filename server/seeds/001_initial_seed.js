@@ -5,6 +5,9 @@ exports.seed = async function (knex) {
   await knex("refresh_token")
     .del()
     .catch(() => {});
+  await knex("insights")
+    .del()
+    .catch(() => {});
   await knex("insight")
     .del()
     .catch(() => {});
@@ -54,21 +57,23 @@ exports.seed = async function (knex) {
   }
 
   // Helper to insert a user
-  const insertUser = async ({ nome, email, password, papel }) => {
+  const insertUser = async ({ nome, email, password, papel, id_psicologo }) => {
     const salt = bcrypt.genSaltSync(10);
     const senha_hash = bcrypt.hashSync(password, salt);
-    const inserted = await knex("usuario")
-      .insert({
-        id_empresa: empresaId,
-        nome,
-        email,
-        senha_hash,
-        papel,
-        status: "active",
-        aceitou_lgpd: false,
-        data_cadastro: knex.fn.now(),
-      })
-      .returning("id_usuario");
+    const row = {
+      id_empresa: empresaId,
+      nome,
+      email,
+      senha_hash,
+      papel,
+      status: "active",
+      aceitou_lgpd: false,
+      data_cadastro: knex.fn.now(),
+    };
+    if (id_psicologo != null) {
+      row.id_psicologo = id_psicologo;
+    }
+    const inserted = await knex("usuario").insert(row).returning("id_usuario");
     if (Array.isArray(inserted) && inserted.length > 0) {
       return typeof inserted[0] === "object"
         ? inserted[0].id_usuario
@@ -83,7 +88,7 @@ exports.seed = async function (knex) {
     password: "Passw0rd!",
     papel: "admin",
   });
-  await insertUser({
+  const psicologoId = await insertUser({
     nome: "Psicologo Teste",
     email: "psicologo@mentis.test",
     password: "Passw0rd!",
@@ -95,11 +100,33 @@ exports.seed = async function (knex) {
     password: "Passw0rd!",
     papel: "gestor",
   });
-  await insertUser({
+  const funcionarioTesteId = await insertUser({
     nome: "Funcionario Teste",
     email: "funcionario@mentis.test",
     password: "Passw0rd!",
     papel: "funcionario",
+    id_psicologo: psicologoId,
+  });
+  await insertUser({
+    nome: "Funcionario Um",
+    email: "funcionario1@mentis.test",
+    password: "Passw0rd!",
+    papel: "funcionario",
+    id_psicologo: psicologoId,
+  });
+  await insertUser({
+    nome: "Funcionario Dois",
+    email: "funcionario2@mentis.test",
+    password: "Passw0rd!",
+    papel: "funcionario",
+    id_psicologo: psicologoId,
+  });
+  await insertUser({
+    nome: "Funcionario Tres",
+    email: "funcionario3@mentis.test",
+    password: "Passw0rd!",
+    papel: "funcionario",
+    id_psicologo: psicologoId,
   });
 
   // Create a simple dynamic questionnaire
@@ -183,4 +210,27 @@ exports.seed = async function (knex) {
     status: "active",
     data_criacao: knex.fn.now(),
   });
+
+  await knex("insights").insert([
+    {
+      id_usuario: funcionarioTesteId,
+      id_psicologo: psicologoId,
+      conteudo:
+        "Paciente relatou sentir-se sobrecarregado nesta semana.",
+      seriedade: "padrao",
+      origem: "manual",
+      criado_em: knex.fn.now(),
+      modificado_em: knex.fn.now(),
+    },
+    {
+      id_usuario: funcionarioTesteId,
+      id_psicologo: psicologoId,
+      conteudo:
+        "Indicios de ansiedade aumentando segundo o tom das ultimas mensagens.",
+      seriedade: "alerta",
+      origem: "ia",
+      criado_em: knex.fn.now(),
+      modificado_em: knex.fn.now(),
+    },
+  ]);
 };
