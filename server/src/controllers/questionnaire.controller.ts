@@ -39,6 +39,8 @@ export async function submitResponse(req: Request, res: Response) {
     });
     res.status(201).json(success(saved));
   } catch (err: any) {
+    console.error("SUBMIT RESPONSE ERROR:");
+    console.error(err);
     res
       .status(err.status || 500)
       .json(fail(err.message || "Error saving response"));
@@ -48,7 +50,11 @@ export async function submitResponse(req: Request, res: Response) {
 export async function history(req: Request, res: Response) {
   try {
     const user = (req as any).user;
-    const data = await QuestionnaireService.historyByUser(user.id_usuario);
+    const days = req.query.days ? Number(req.query.days) : undefined;
+    const data = await QuestionnaireService.historyByUser(
+      user.id_usuario,
+      days,
+    );
     res.json(success(data));
   } catch (err: any) {
     res

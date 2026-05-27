@@ -27,6 +27,10 @@ class UserRepository {
       .update({ ultimo_acesso: db.fn.now() });
   }
 
+  static async updatePontuacaoTotal(id: number, pontuacao_total: number) {
+    await db("usuario").where({ id_usuario: id }).update({ pontuacao_total });
+  }
+
   static async listByPsicologo(id_psicologo: number) {
     return db("usuario")
       .where({ id_psicologo, papel: "funcionario" })

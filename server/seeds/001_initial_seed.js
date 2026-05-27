@@ -139,13 +139,13 @@ exports.seed = async function (knex) {
         questions: [
           {
             id: "e1",
-            text: "Sinto-me tenso frequentemente",
+            text: "Qual o nível de tensão que você sente no dia a dia?",
             type: "scale",
             max: 4,
           },
           {
             id: "e2",
-            text: "Tenho dificuldade para relaxar",
+            text: "Qual a dificuldade que você tem para relaxar?",
             type: "scale",
             max: 4,
           },
@@ -157,13 +157,13 @@ exports.seed = async function (knex) {
         questions: [
           {
             id: "a1",
-            text: "Preocupo-me excessivamente",
+            text: "Qual o nível de preocupação excessiva que você sente?",
             type: "scale",
             max: 4,
           },
           {
             id: "a2",
-            text: "Sinto medo sem razão aparente",
+            text: "Com que intensidade você sente medo sem motivo aparente?",
             type: "scale",
             max: 4,
           },
@@ -175,13 +175,13 @@ exports.seed = async function (knex) {
         questions: [
           {
             id: "b1",
-            text: "Sinto-me exausto no trabalho",
+            text: "ual o nível de exaustão que você sente em relação ao trabalho?",
             type: "scale",
             max: 4,
           },
           {
             id: "b2",
-            text: "Perdi interesse pelas minhas tarefas",
+            text: "Quanto interesse você perdeu pelas suas tarefas?",
             type: "scale",
             max: 4,
           },
@@ -193,11 +193,16 @@ exports.seed = async function (knex) {
         questions: [
           {
             id: "d1",
-            text: "Perco interesse nas atividades que antes gostava",
+            text: "Quanto interesse você perdeu em atividades que antes gostava?",
             type: "scale",
             max: 4,
           },
-          { id: "d2", text: "Sinto-me sem esperança", type: "scale", max: 4 },
+          {
+            id: "d2",
+            text: "Qual o nível de desesperança que você sente?",
+            type: "scale",
+            max: 4,
+          },
         ],
       },
     ],
@@ -215,8 +220,7 @@ exports.seed = async function (knex) {
     {
       id_usuario: funcionarioTesteId,
       id_psicologo: psicologoId,
-      conteudo:
-        "Paciente relatou sentir-se sobrecarregado nesta semana.",
+      conteudo: "Paciente relatou sentir-se sobrecarregado nesta semana.",
       seriedade: "padrao",
       origem: "manual",
       criado_em: knex.fn.now(),

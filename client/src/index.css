@@ -25,3 +25,7 @@
     box-shadow: 0 0 28px rgb(255 255 255 / 0.35);
   }
 }
+
+.progress-fill {
+  width: var(--progress-width, 0%);
+}

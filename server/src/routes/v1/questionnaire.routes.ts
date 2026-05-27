@@ -8,7 +8,10 @@ import {
 import { authenticate } from "../../middlewares/auth.middleware";
 import { requireLgpdAccepted } from "../../middlewares/lgpd.middleware";
 import { authorize } from "../../middlewares/role.middleware";
-import { submitResponseValidator } from "../../validators/questionnaire.validator";
+import {
+  submitResponseValidator,
+  historyQueryValidator,
+} from "../../validators/questionnaire.validator";
 
 const router = Router();
 
@@ -21,6 +24,12 @@ router.post(
   submitResponseValidator,
   submitResponse,
 );
-router.get("/responses/history", authenticate, requireLgpdAccepted, history);
+router.get(
+  "/responses/history",
+  authenticate,
+  requireLgpdAccepted,
+  historyQueryValidator,
+  history,
+);
 
 export default router;

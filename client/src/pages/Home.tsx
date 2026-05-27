@@ -1,102 +1,154 @@
-import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
-import DashboardCard from '../components/DashboardCard'
-import ProgressBar from '../components/ProgressBar'
-import DashboardLayout from '../layouts/DashboardLayout'
+import api from "../hooks/useApi";
+import DashboardCard from "../components/DashboardCard";
+import ProgressBar from "../components/ProgressBar";
+import DashboardLayout from "../layouts/DashboardLayout";
 
 type ActionCardData = {
-  description: ReactNode
-  href: string
-  id: string
-  marker: string
-  title: string
-}
+  description: ReactNode;
+  href: string;
+  id: string;
+  marker: string;
+  title: string;
+};
 
 type WellbeingMetric = {
-  colorClassName: string
-  id: string
-  label: ReactNode
-  level: ReactNode
-  value: number
-}
+  colorClassName: string;
+  id: string;
+  label: ReactNode;
+  level: ReactNode;
+  value: number;
+};
+
+type DashboardEntry = {
+  id_resposta_questionario: number;
+  data_resposta: string;
+  nivel_estresse: number;
+  nivel_ansiedade: number;
+  nivel_burnout: number;
+  nivel_depressao: number;
+  pontuacao_total?: number;
+  classificacao_geral?: string;
+};
 
 const actionCards: ActionCardData[] = [
   {
-    id: 'check-in',
-    title: 'Fazer Check-in',
+    id: "check-in",
+    title: "Fazer Check-in",
     description: <>Responder question&aacute;rio de bem estar</>,
-    href: '/patient/questionario',
-    marker: '01',
+    href: "/patient/questionario",
+    marker: "01",
   },
   {
-    id: 'support-chat',
-    title: 'Chat de apoio',
-    description: 'Converse com o assistente IA',
-    href: '/patient/chat',
-    marker: '02',
+    id: "support-chat",
+    title: "Chat de apoio",
+    description: "Converse com o assistente IA",
+    href: "/patient/chat",
+    marker: "02",
   },
   {
-    id: 'insights',
-    title: 'Insights',
+    id: "insights",
+    title: "Insights",
     description: <>Ver recomenda&ccedil;&otilde;es personalizadas</>,
-    href: '/patient/insights',
-    marker: '03',
+    href: "/patient/insights",
+    marker: "03",
   },
-]
+];
 
-const wellbeingMetrics: WellbeingMetric[] = [
-  {
-    id: 'anxiety',
-    label: 'Ansiedade',
-    level: 'Alto',
-    value: 82,
-    colorClassName: 'bg-rose-500',
-  },
-  {
-    id: 'stress',
-    label: 'Estresse',
-    level: <>M&eacute;dio</>,
-    value: 58,
-    colorClassName: 'bg-amber-500',
-  },
-  {
-    id: 'burnout',
-    label: 'Burnout',
-    level: 'Leve',
-    value: 34,
-    colorClassName: 'bg-emerald-500',
-  },
-  {
-    id: 'depression',
-    label: <>Depress&atilde;o</>,
-    level: 'Leve',
-    value: 28,
-    colorClassName: 'bg-sky-500',
-  },
-]
+const metricDefinitions = [
+  { id: "estresse", label: "Estresse" },
+  { id: "ansiedade", label: "Ansiedade" },
+  { id: "burnout", label: "Burnout" },
+  { id: "depressao", label: <>Depress&atilde;o</> },
+];
 
 export default function Home() {
+  const [history, setHistory] = useState<DashboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchHistory() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const res = await api("/questionnaires/responses/history?days=30");
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.message || "Erro ao carregar resultados");
+        }
+        const json = await res.json();
+        setHistory(json?.data ?? []);
+      } catch (err: any) {
+        setError(err?.message ?? "Erro ao carregar resultados");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchHistory();
+  }, []);
+
+  const latestEntry = history[0];
+  const streakDays = useMemo(() => computeStreak(history), [history]);
+  const summaryLabel = latestEntry?.classificacao_geral ?? "Nenhum check-in";
+
+  const metrics = useMemo(() => {
+    const hasEntry = Boolean(latestEntry);
+    return metricDefinitions.map((metric) => {
+      let value = 0;
+      if (latestEntry) {
+        switch (metric.id) {
+          case "estresse":
+            value = latestEntry.nivel_estresse;
+            break;
+          case "ansiedade":
+            value = latestEntry.nivel_ansiedade;
+            break;
+          case "burnout":
+            value = latestEntry.nivel_burnout;
+            break;
+          case "depressao":
+            value = latestEntry.nivel_depressao;
+            break;
+        }
+      }
+
+      return {
+        id: metric.id,
+        label: metric.label,
+        value,
+        level: hasEntry ? getMetricLevel(value) : "Sem dados",
+        colorClassName: getMetricColor(value),
+      };
+    });
+  }, [latestEntry]);
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <HomeHeader currentDate={formatCurrentDate()} />
+        <HomeHeader currentDate={formatCurrentDate()} streakDays={streakDays} />
         <ActionCardsGrid cards={actionCards} />
 
         <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-          <WellbeingStatusCard metrics={wellbeingMetrics} />
-          <LatestInsightCard />
+          <WellbeingStatusCard metrics={metrics} summaryLabel={summaryLabel} />
+          <LatestInsightCard isLoading={isLoading} error={error} />
         </section>
       </div>
     </DashboardLayout>
-  )
+  );
 }
 
 type HomeHeaderProps = {
-  currentDate: string
-}
+  currentDate: string;
+  streakDays: number;
+};
 
-function HomeHeader({ currentDate }: HomeHeaderProps) {
+function HomeHeader({ currentDate, streakDays }: HomeHeaderProps) {
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div>
@@ -106,12 +158,17 @@ function HomeHeader({ currentDate }: HomeHeaderProps) {
         <p className="mt-2 text-sm font-medium text-gray-500">{currentDate}</p>
       </div>
 
-      <StreakCard />
+      <StreakCard streakDays={streakDays} />
     </header>
-  )
+  );
 }
 
-function StreakCard() {
+type StreakCardProps = {
+  streakDays: number;
+};
+
+function StreakCard({ streakDays }: StreakCardProps) {
+  const isActive = streakDays > 0;
   return (
     <DashboardCard className="flex w-full items-center gap-3 border-emerald-100 px-4 py-3 sm:w-auto">
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
@@ -119,19 +176,23 @@ function StreakCard() {
       </div>
       <div>
         <p className="text-sm font-semibold text-gray-950">
-          12 dias consecutivos
+          {isActive
+            ? `${streakDays} dias consecutivos`
+            : "Nenhum check-in recente"}
         </p>
         <p className="mt-0.5 text-xs text-gray-500">
-          Sequ&ecirc;ncia ativa
+          {isActive
+            ? "Sequência ativa"
+            : "Responda um questionário para começar"}
         </p>
       </div>
     </DashboardCard>
-  )
+  );
 }
 
 type ActionCardsGridProps = {
-  cards: ActionCardData[]
-}
+  cards: ActionCardData[];
+};
 
 function ActionCardsGrid({ cards }: ActionCardsGridProps) {
   return (
@@ -140,12 +201,12 @@ function ActionCardsGrid({ cards }: ActionCardsGridProps) {
         <ActionCard key={card.id} card={card} />
       ))}
     </section>
-  )
+  );
 }
 
 type ActionCardProps = {
-  card: ActionCardData
-}
+  card: ActionCardData;
+};
 
 function ActionCard({ card }: ActionCardProps) {
   return (
@@ -157,24 +218,29 @@ function ActionCard({ card }: ActionCardProps) {
         {card.marker}
       </div>
       <h2 className="mt-8 text-xl font-semibold">{card.title}</h2>
-      <p className="mt-2 text-sm leading-6 text-white/80">
-        {card.description}
-      </p>
+      <p className="mt-2 text-sm leading-6 text-white/80">{card.description}</p>
       <span className="mt-6 inline-flex text-sm font-medium text-white/90 transition-transform duration-200 group-hover:translate-x-1">
         Acessar
       </span>
     </Link>
-  )
+  );
 }
 
 type WellbeingStatusCardProps = {
-  metrics: WellbeingMetric[]
-}
+  metrics: WellbeingMetric[];
+  summaryLabel: string;
+};
 
-function WellbeingStatusCard({ metrics }: WellbeingStatusCardProps) {
+function WellbeingStatusCard({
+  metrics,
+  summaryLabel,
+}: WellbeingStatusCardProps) {
   return (
     <DashboardCard>
       <SectionTitle>Status de Bem-estar</SectionTitle>
+      <p className="mt-2 text-sm text-gray-500">
+        Classificação atual: {summaryLabel}
+      </p>
 
       <div className="mt-6 space-y-5">
         {metrics.map((metric) => (
@@ -188,10 +254,33 @@ function WellbeingStatusCard({ metrics }: WellbeingStatusCardProps) {
         ))}
       </div>
     </DashboardCard>
-  )
+  );
 }
 
-function LatestInsightCard() {
+type LatestInsightCardProps = {
+  isLoading: boolean;
+  error: string | null;
+};
+
+function LatestInsightCard({ isLoading, error }: LatestInsightCardProps) {
+  if (isLoading) {
+    return (
+      <DashboardCard>
+        <SectionTitle>&Uacute;ltimo Insight</SectionTitle>
+        <div className="mt-4 text-sm text-gray-500">Carregando dados...</div>
+      </DashboardCard>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardCard>
+        <SectionTitle>&Uacute;ltimo Insight</SectionTitle>
+        <p className="mt-4 text-sm leading-6 text-red-600">{error}</p>
+      </DashboardCard>
+    );
+  }
+
   return (
     <DashboardCard>
       <SectionTitle>&Uacute;ltimo Insight</SectionTitle>
@@ -213,34 +302,34 @@ function LatestInsightCard() {
         Ver todos os insights
       </Link>
     </DashboardCard>
-  )
+  );
 }
 
 type SectionTitleProps = {
-  children: ReactNode
-}
+  children: ReactNode;
+};
 
 function SectionTitle({ children }: SectionTitleProps) {
-  return <h2 className="text-lg font-semibold text-gray-950">{children}</h2>
+  return <h2 className="text-lg font-semibold text-gray-950">{children}</h2>;
 }
 
 type InsightTagProps = {
-  children: ReactNode
-}
+  children: ReactNode;
+};
 
 function InsightTag({ children }: InsightTagProps) {
   return (
     <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
       {children}
     </span>
-  )
+  );
 }
 
 type IconProps = {
-  className?: string
-}
+  className?: string;
+};
 
-function StreakIcon({ className = '' }: IconProps) {
+function StreakIcon({ className = "" }: IconProps) {
   return (
     <svg
       className={className}
@@ -263,16 +352,65 @@ function StreakIcon({ className = '' }: IconProps) {
         strokeLinejoin="round"
       />
     </svg>
-  )
+  );
 }
 
 function formatCurrentDate() {
-  const date = new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date())
+  const date = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
 
-  return date.charAt(0).toUpperCase() + date.slice(1)
+  return date.charAt(0).toUpperCase() + date.slice(1);
+}
+
+function getMetricColor(value: number) {
+  if (value >= 75) return "bg-rose-500";
+  if (value >= 40) return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+function getMetricLevel(value: number) {
+  if (value >= 75) return "Alto";
+  if (value >= 40) return "Médio";
+  if (value > 0) return "Baixo";
+  return "Sem dados";
+}
+
+function computeStreak(history: DashboardEntry[]) {
+  if (history.length === 0) return 0;
+
+  let streak = 0;
+  let previousDate: Date | null = null;
+
+  for (const entry of history) {
+    const currentDate = new Date(entry.data_resposta);
+    currentDate.setHours(0, 0, 0, 0);
+
+    if (!previousDate) {
+      streak = 1;
+      previousDate = currentDate;
+      continue;
+    }
+
+    const diff = Math.round(
+      (previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (diff === 0) {
+      continue;
+    }
+
+    if (diff === 1) {
+      streak += 1;
+      previousDate = currentDate;
+      continue;
+    }
+
+    break;
+  }
+
+  return streak;
 }
