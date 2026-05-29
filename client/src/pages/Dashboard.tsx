@@ -118,8 +118,8 @@ export default function Dashboard() {
 
   const trendData = useMemo(
     () =>
-      [...history].reverse().map((entry, index) => ({
-        week: formatEntryLabel(entry, index),
+      [...history].reverse().map((entry) => ({
+        week: formatEntryLabel(entry),
         estresse: entry.nivel_estresse,
         ansiedade: entry.nivel_ansiedade,
         burnout: entry.nivel_burnout,
@@ -310,7 +310,7 @@ function PageHeader({ selectedPeriod, onSelectPeriod }: PageHeaderProps) {
   );
 }
 
-function formatEntryLabel(entry: DashboardEntry, index: number) {
+function formatEntryLabel(entry: DashboardEntry) {
   const date = new Date(entry.data_resposta);
   const day = date.getDate().toString().padStart(2, "0");
   const month = (date.getMonth() + 1).toString().padStart(2, "0");

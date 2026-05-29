@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import {
   Bar,
   BarChart,
@@ -12,6 +12,10 @@ import {
 import DashboardCard from '../../../components/DashboardCard'
 import StatusBadge from '../../../components/StatusBadge'
 import ManagerLayout from './ManagerLayout'
+import {
+  useManagerDashboard,
+  type RiskDistributionData,
+} from '../../../hooks/useApi/useManager'
 
 type SummaryMetric = {
   id: string
@@ -20,109 +24,38 @@ type SummaryMetric = {
   value: string
 }
 
-type RiskDistribution = {
-  colorClassName: string
-  id: string
-  label: ReactNode
-  patients: number
-  value: number
-}
-
 type RecentAlert = {
   id: string
   text: ReactNode
   variant: 'attention' | 'new' | 'stable'
 }
 
-const summaryMetrics: SummaryMetric[] = [
-  {
-    id: 'registered-patients',
-    label: 'Pacientes cadastrados',
-    value: '128',
-    tone: 'text-emerald-700',
-  },
-  {
-    id: 'active-psychologists',
-    label: <>Psic&oacute;logos ativos</>,
-    value: '8',
-    tone: 'text-blue-700',
-  },
-  {
-    id: 'high-risk-patients',
-    label: 'Pacientes em risco alto',
-    value: '14',
-    tone: 'text-rose-600',
-  },
-  {
-    id: 'completed-checkins',
-    label: 'Check-ins realizados',
-    value: '342',
-    tone: 'text-gray-950',
-  },
-]
-
-const checkinsData = [
-  {
-    week: 'Sem 1',
-    checkins: 68,
-  },
-  {
-    week: 'Sem 2',
-    checkins: 82,
-  },
-  {
-    week: 'Sem 3',
-    checkins: 91,
-  },
-  {
-    week: 'Sem 4',
-    checkins: 101,
-  },
-]
-
-const riskDistribution: RiskDistribution[] = [
-  {
-    id: 'low',
-    label: 'Baixo',
-    patients: 64,
-    value: 50,
-    colorClassName: 'bg-emerald-500',
-  },
-  {
-    id: 'medium',
-    label: <>M&eacute;dio</>,
-    patients: 50,
-    value: 39,
-    colorClassName: 'bg-amber-500',
-  },
-  {
-    id: 'high',
-    label: 'Alto',
-    patients: 14,
-    value: 11,
-    colorClassName: 'bg-rose-500',
-  },
-]
-
-const recentAlerts: RecentAlert[] = [
-  {
-    id: 'high-risk',
-    text: '14 pacientes em risco alto',
-    variant: 'attention',
-  },
-  {
-    id: 'full-schedule',
-    text: <>3 psic&oacute;logos com agenda cheia</>,
-    variant: 'stable',
-  },
-  {
-    id: 'checkins-drop',
-    text: <>Queda de check-ins nos &uacute;ltimos 7 dias</>,
-    variant: 'new',
-  },
-]
-
 export default function ManagerPainelGeral() {
+  const { data, loading, error } = useManagerDashboard()
+  const recentAlerts: RecentAlert[] = data
+    ? [
+        {
+          id: 'high-risk',
+          text: `${data.stats.highRiskPatients ?? 0} pacientes em risco alto`,
+          variant: 'attention',
+        },
+        {
+          id: 'active-psychologists',
+          text: (
+            <>
+              {data.stats.activePsychologists} psic&oacute;logos ativos
+            </>
+          ),
+          variant: 'stable',
+        },
+        {
+          id: 'completed-checkins',
+          text: `${data.stats.completedCheckins} check-ins realizados`,
+          variant: 'new',
+        },
+      ]
+    : []
+
   return (
     <ManagerLayout>
       <div className="space-y-8">
@@ -135,36 +68,79 @@ export default function ManagerPainelGeral() {
           </p>
         </header>
 
-        <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {summaryMetrics.map((metric) => (
-            <ManagerSummaryCard key={metric.id} metric={metric} />
-          ))}
-        </section>
-
-        <section className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
-          <CheckinsChart />
-          <RiskDistributionCard />
-        </section>
-
-        <DashboardCard>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-950">
-                Alertas recentes
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Sinais administrativos que exigem acompanhamento.
-              </p>
-            </div>
-            <StatusBadge variant="attention">{recentAlerts.length}</StatusBadge>
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            Erro ao carregar dados: {error}
           </div>
+        )}
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            {recentAlerts.map((alert) => (
-              <RecentAlertItem key={alert.id} alert={alert} />
-            ))}
+        {loading ? (
+          <div className="text-center py-12 text-gray-500">
+            Carregando dados...
           </div>
-        </DashboardCard>
+        ) : data ? (
+          <>
+            <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <ManagerSummaryCard
+                metric={{
+                  id: 'registered-patients',
+                  label: 'Pacientes cadastrados',
+                  value: String(data.stats.registeredPatients),
+                  tone: 'text-emerald-700',
+                }}
+              />
+              <ManagerSummaryCard
+                metric={{
+                  id: 'active-psychologists',
+                  label: <>Psic&oacute;logos ativos</>,
+                  value: String(data.stats.activePsychologists),
+                  tone: 'text-blue-700',
+                }}
+              />
+              <ManagerSummaryCard
+                metric={{
+                  id: 'high-risk-patients',
+                  label: 'Pacientes em risco alto',
+                  value: String(data.stats.highRiskPatients ?? 0),
+                  tone: 'text-rose-600',
+                }}
+              />
+              <ManagerSummaryCard
+                metric={{
+                  id: 'completed-checkins',
+                  label: 'Check-ins realizados',
+                  value: String(data.stats.completedCheckins),
+                  tone: 'text-gray-950',
+                }}
+              />
+            </section>
+
+            <section className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
+              <CheckinsChart data={data.checkins} />
+              <RiskDistributionCard data={data.riskDistribution} />
+            </section>
+
+            <DashboardCard>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-950">
+                    Alertas recentes
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Sinais administrativos que exigem acompanhamento.
+                  </p>
+                </div>
+                <StatusBadge variant="attention">{recentAlerts.length}</StatusBadge>
+              </div>
+
+              <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                {recentAlerts.map((alert) => (
+                  <RecentAlertItem key={alert.id} alert={alert} />
+                ))}
+              </div>
+            </DashboardCard>
+          </>
+        ) : null}
       </div>
     </ManagerLayout>
   )
@@ -183,7 +159,7 @@ function ManagerSummaryCard({ metric }: { metric: SummaryMetric }) {
   )
 }
 
-function CheckinsChart() {
+function CheckinsChart({ data }: { data: any[] }) {
   return (
     <DashboardCard>
       <h2 className="text-lg font-semibold text-gray-950">
@@ -193,7 +169,7 @@ function CheckinsChart() {
       <div className="mt-8 h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={checkinsData}
+            data={data}
             margin={{ top: 8, right: 18, bottom: 8, left: -10 }}
           >
             <CartesianGrid
@@ -236,7 +212,7 @@ function CheckinsChart() {
   )
 }
 
-function RiskDistributionCard() {
+function RiskDistributionCard({ data }: { data: RiskDistributionData[] }) {
   return (
     <DashboardCard>
       <h2 className="text-lg font-semibold text-gray-950">
@@ -244,7 +220,7 @@ function RiskDistributionCard() {
       </h2>
 
       <div className="mt-6 space-y-5">
-        {riskDistribution.map((risk) => (
+        {data.map((risk) => (
           <div key={risk.id}>
             <div className="mb-2 flex items-center justify-between gap-4">
               <p className="text-sm font-medium text-gray-700">
@@ -256,7 +232,7 @@ function RiskDistributionCard() {
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-gray-100">
               <div
-                className={`h-full rounded-full ${risk.colorClassName}`}
+                className={`h-full rounded-full ${getRiskColor(risk.id)}`}
                 style={{ width: `${risk.value}%` }}
               />
             </div>
@@ -265,6 +241,12 @@ function RiskDistributionCard() {
       </div>
     </DashboardCard>
   )
+}
+
+function getRiskColor(riskId: string) {
+  if (riskId === 'high') return 'bg-rose-500'
+  if (riskId === 'medium') return 'bg-amber-500'
+  return 'bg-emerald-500'
 }
 
 function RecentAlertItem({ alert }: { alert: RecentAlert }) {

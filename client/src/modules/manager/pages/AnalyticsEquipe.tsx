@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -13,6 +13,8 @@ import {
 } from 'recharts'
 
 import DashboardCard from '../../../components/DashboardCard'
+import Snackbar from '../../../components/Snackbar'
+import { useManagerStatistics } from '../../../hooks/useApi/useManager'
 import ManagerLayout from './ManagerLayout'
 
 type DepartmentScore = {
@@ -20,10 +22,15 @@ type DepartmentScore = {
   score: number
 }
 
+type UserRoleStats = {
+  papel: string
+  count: number
+}
+
 const periodOptions = [
-  '\u00daltimas 4 semanas',
-  '\u00daltimos 3 meses',
-  '\u00daltimo semestre',
+  'Últimas 4 semanas',
+  'Últimos 3 meses',
+  'Último semestre',
 ]
 
 const indicatorData = [
@@ -114,6 +121,19 @@ const tooltipStyle = {
 
 export default function AnalyticsEquipe() {
   const [selectedPeriod, setSelectedPeriod] = useState(periodOptions[0])
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' })
+  const { data, loading, error } = useManagerStatistics()
+
+  useEffect(() => {
+    if (error) {
+      setSnackbar({
+        open: true,
+        message: error || 'Erro ao carregar estatísticas.',
+      })
+    }
+  }, [error])
+
+  const roleStats: UserRoleStats[] = data?.byRole || []
 
   return (
     <ManagerLayout>
@@ -127,10 +147,15 @@ export default function AnalyticsEquipe() {
           </p>
         </header>
 
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+
         <div className="space-y-5">
           <section className="rounded-2xl border border-violet-100 bg-violet-50 px-5 py-4 text-sm font-medium leading-6 text-violet-900 shadow-sm">
-            Todos os dados s&atilde;o agregados e an&ocirc;nimos. Grupos com
-            menos de 5 pessoas n&atilde;o s&atilde;o exibidos.
+            Todos os dados são agregados e anônimos. Grupos com menos de 5 pessoas não são exibidos.
           </section>
 
           <PeriodFilter
@@ -141,7 +166,11 @@ export default function AnalyticsEquipe() {
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <AnalyticsChart />
-          <DepartmentScoresCard />
+          {!loading && roleStats.length > 0 ? (
+            <UserRoleDistribution roleStats={roleStats} />
+          ) : (
+            <DepartmentScoresCard />
+          )}
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(280px,1.05fr)]">
@@ -158,6 +187,13 @@ export default function AnalyticsEquipe() {
           </DashboardCard>
         </section>
       </div>
+
+      <Snackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        variant="error"
+        onClose={() => setSnackbar({ open: false, message: '' })}
+      />
     </ManagerLayout>
   )
 }
@@ -293,6 +329,57 @@ function DepartmentScoresCard() {
             department={department}
           />
         ))}
+      </div>
+    </DashboardCard>
+  )
+}
+
+function UserRoleDistribution({ roleStats }: { roleStats: UserRoleStats[] }) {
+  const roleLabels: Record<string, string> = {
+    funcionario: 'Pacientes',
+    psicologo: 'Psicólogos',
+    gestor: 'Gestores',
+    admin: 'Admins',
+  }
+
+  const roleColors: Record<string, string> = {
+    funcionario: 'bg-emerald-500',
+    psicologo: 'bg-blue-500',
+    gestor: 'bg-purple-500',
+    admin: 'bg-red-500',
+  }
+
+  const total = roleStats.reduce((sum, role) => sum + role.count, 0)
+
+  return (
+    <DashboardCard>
+      <ChartHeader
+        title="Distribuição de usuários"
+        description="Quantidade de usuários por papel"
+      />
+
+      <div className="mt-7 space-y-6">
+        {roleStats.map((role) => {
+          const percent = total > 0 ? (role.count / total) * 100 : 0
+          const label = roleLabels[role.papel] || role.papel
+
+          return (
+            <div key={role.papel}>
+              <div className="mb-2 flex items-center justify-between gap-4">
+                <p className="text-sm font-medium text-gray-700">{label}</p>
+                <p className="text-sm font-semibold text-gray-950">
+                  {role.count}
+                </p>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className={`h-full rounded-full ${roleColors[role.papel] || 'bg-gray-500'}`}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
     </DashboardCard>
   )

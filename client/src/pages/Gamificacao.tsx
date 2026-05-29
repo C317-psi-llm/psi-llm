@@ -97,6 +97,10 @@ export default function Gamificacao() {
           </p>
         </header>
 
+        {isLoading && (
+          <p className="text-sm text-gray-500">Carregando gamificacao...</p>
+        )}
+
         <DashboardCard className="overflow-hidden p-0">
           <div className="bg-linear-to-br from-[#2F8F7B] to-[#4fb39d] p-7 text-white sm:p-8">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">

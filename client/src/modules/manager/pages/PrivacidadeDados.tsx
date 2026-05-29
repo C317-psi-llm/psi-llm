@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import DashboardCard from '../../../components/DashboardCard'
+import Snackbar from '../../../components/Snackbar'
+import { useManagerLGPDStatus } from '../../../hooks/useApi/useManager'
 import ManagerLayout from './ManagerLayout'
 
 type PrivacyInfo = {
@@ -71,9 +73,20 @@ const accordionItems: AccordionItem[] = [
 ]
 
 export default function PrivacidadeDados() {
+  const { data, loading, error } = useManagerLGPDStatus(1, 8)
   const [openItems, setOpenItems] = useState<string[]>([
     accordionItems[0].id,
   ])
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' })
+
+  useEffect(() => {
+    if (error) {
+      setSnackbar({
+        open: true,
+        message: error || 'Erro ao carregar status LGPD.',
+      })
+    }
+  }, [error])
 
   function toggleAccordion(itemId: string) {
     setOpenItems((currentItems) =>
@@ -132,6 +145,72 @@ export default function PrivacidadeDados() {
 
         <section className="space-y-5">
           <SectionHeader
+            title="Status LGPD"
+            description="Acompanhamento administrativo dos aceites registrados."
+          />
+
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              {error}
+            </div>
+          )}
+
+          {loading && (
+            <p className="text-sm text-gray-500">Carregando status LGPD...</p>
+          )}
+
+          {!loading && data && (
+            <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+              <DashboardCard className="p-5">
+                <p className="text-sm font-medium text-gray-500">
+                  Taxa de aceite
+                </p>
+                <p className="mt-4 text-4xl font-semibold tracking-tight text-emerald-700">
+                  {data.acceptanceRate}%
+                </p>
+                <p className="mt-2 text-sm text-gray-500">
+                  {data.total} usuarios ativos
+                </p>
+              </DashboardCard>
+
+              <DashboardCard className="overflow-hidden p-0">
+                <div className="border-b border-gray-100 px-5 py-4">
+                  <h2 className="text-lg font-semibold text-gray-950">
+                    Ultimos usuarios
+                  </h2>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {data.items.map((user) => (
+                    <div
+                      key={user.id_usuario}
+                      className="grid gap-3 px-5 py-4 text-sm sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-gray-900">
+                          {user.nome}
+                        </p>
+                        <p className="truncate text-gray-500">{user.email}</p>
+                      </div>
+                      <span className="text-gray-500">{formatRole(user.papel)}</span>
+                      <span
+                        className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${
+                          user.aceitou_lgpd
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {user.aceitou_lgpd ? 'Aceito' : 'Pendente'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </DashboardCard>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-5">
+          <SectionHeader
             title="Perguntas frequentes"
             description="Detalhes sobre acesso, anonimiza&ccedil;&atilde;o, reten&ccedil;&atilde;o e direitos."
           />
@@ -148,8 +227,26 @@ export default function PrivacidadeDados() {
           </div>
         </section>
       </div>
+
+      <Snackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        variant="error"
+        onClose={() => setSnackbar({ open: false, message: '' })}
+      />
     </ManagerLayout>
   )
+}
+
+function formatRole(role: string) {
+  const labels: Record<string, string> = {
+    funcionario: 'Paciente',
+    psicologo: 'Psicologo',
+    gestor: 'Gestor',
+    admin: 'Admin',
+  }
+
+  return labels[role] || role
 }
 
 function SectionHeader({
