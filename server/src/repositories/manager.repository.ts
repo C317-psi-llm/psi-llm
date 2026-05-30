@@ -1,27 +1,222 @@
 import db from "../db/knex";
 
-class ManagerRepository {
-  private static systemSettings = {
-    appName: "Mentis",
-    version: "1.0.0",
-    features: {
-      chat: true,
-      insights: true,
-      gamification: true,
-      alerts: true,
-    },
-    security: {
-      passwordMinLength: 8,
-      sessionTimeout: 15,
-      mfaEnabled: false,
-    },
-    notifications: {
-      emailAlerts: true,
-      smsAlerts: false,
-      pushNotifications: true,
-    },
-  };
+type BooleanSettings = Record<string, boolean>;
 
+interface SecuritySettings {
+  passwordMinLength: number;
+  sessionTimeout: number;
+  mfaEnabled: boolean;
+}
+
+interface SystemSettings {
+  appName: string;
+  version: string;
+  features: BooleanSettings;
+  security: SecuritySettings;
+  notifications: BooleanSettings;
+}
+
+const SYSTEM_SETTINGS_ID = "default";
+
+const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
+  appName: "Mentis",
+  version: "1.0.0",
+  features: {
+    chat: true,
+    insights: true,
+    gamification: true,
+    alerts: true,
+  },
+  security: {
+    passwordMinLength: 8,
+    sessionTimeout: 15,
+    mfaEnabled: false,
+  },
+  notifications: {
+    emailAlerts: true,
+    smsAlerts: false,
+    pushNotifications: true,
+  },
+};
+
+function createBadRequestError(message: string) {
+  const error = new Error(message) as Error & { status: number };
+  error.status = 400;
+  return error;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseJsonColumn<T>(value: unknown, fallback: T): T {
+  if (!value) return fallback;
+
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  }
+
+  return value as T;
+}
+
+function mapSystemSettingsRow(row: any): SystemSettings {
+  return {
+    appName: row.app_name,
+    version: row.version,
+    features: parseJsonColumn<BooleanSettings>(
+      row.features,
+      DEFAULT_SYSTEM_SETTINGS.features
+    ),
+    security: parseJsonColumn<SecuritySettings>(
+      row.security,
+      DEFAULT_SYSTEM_SETTINGS.security
+    ),
+    notifications: parseJsonColumn<BooleanSettings>(
+      row.notifications,
+      DEFAULT_SYSTEM_SETTINGS.notifications
+    ),
+  };
+}
+
+function mergeBooleanSettings(
+  current: BooleanSettings,
+  incoming: unknown,
+  sectionName: string
+) {
+  if (incoming === undefined) return current;
+
+  if (!isPlainObject(incoming)) {
+    throw createBadRequestError(`${sectionName} must be an object`);
+  }
+
+  const next = { ...current };
+
+  Object.entries(incoming).forEach(([key, value]) => {
+    if (typeof value !== "boolean") {
+      throw createBadRequestError(`${sectionName}.${key} must be a boolean`);
+    }
+
+    next[key] = value;
+  });
+
+  return next;
+}
+
+function validateNumberSetting(
+  value: unknown,
+  fieldName: string,
+  min: number,
+  max: number
+) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw createBadRequestError(`${fieldName} must be a valid number`);
+  }
+
+  if (value < min || value > max) {
+    throw createBadRequestError(
+      `${fieldName} must be between ${min} and ${max}`
+    );
+  }
+
+  return value;
+}
+
+function mergeSecuritySettings(
+  current: SecuritySettings,
+  incoming: unknown
+): SecuritySettings {
+  if (incoming === undefined) return current;
+
+  if (!isPlainObject(incoming)) {
+    throw createBadRequestError("security must be an object");
+  }
+
+  const allowedKeys = ["passwordMinLength", "sessionTimeout", "mfaEnabled"];
+
+  Object.keys(incoming).forEach((key) => {
+    if (!allowedKeys.includes(key)) {
+      throw createBadRequestError(`security.${key} is not allowed`);
+    }
+  });
+
+  return {
+    passwordMinLength:
+      incoming.passwordMinLength === undefined
+        ? current.passwordMinLength
+        : validateNumberSetting(
+            incoming.passwordMinLength,
+            "security.passwordMinLength",
+            6,
+            24
+          ),
+    sessionTimeout:
+      incoming.sessionTimeout === undefined
+        ? current.sessionTimeout
+        : validateNumberSetting(
+            incoming.sessionTimeout,
+            "security.sessionTimeout",
+            5,
+            120
+          ),
+    mfaEnabled:
+      incoming.mfaEnabled === undefined
+        ? current.mfaEnabled
+        : validateBooleanValue(incoming.mfaEnabled, "security.mfaEnabled"),
+  };
+}
+
+function validateBooleanValue(value: unknown, fieldName: string) {
+  if (typeof value !== "boolean") {
+    throw createBadRequestError(`${fieldName} must be a boolean`);
+  }
+
+  return value;
+}
+
+function mergeSystemSettings(
+  current: SystemSettings,
+  incoming: unknown
+): SystemSettings {
+  if (!isPlainObject(incoming)) {
+    throw createBadRequestError("Settings payload must be an object");
+  }
+
+  const nextAppName =
+    incoming.appName === undefined ? current.appName : incoming.appName;
+
+  const nextVersion =
+    incoming.version === undefined ? current.version : incoming.version;
+
+  if (typeof nextAppName !== "string" || !nextAppName.trim()) {
+    throw createBadRequestError("appName must be a non-empty string");
+  }
+
+  if (typeof nextVersion !== "string" || !nextVersion.trim()) {
+    throw createBadRequestError("version must be a non-empty string");
+  }
+
+  return {
+    appName: nextAppName.trim(),
+    version: nextVersion.trim(),
+    features: mergeBooleanSettings(
+      current.features,
+      incoming.features,
+      "features"
+    ),
+    security: mergeSecuritySettings(current.security, incoming.security),
+    notifications: mergeBooleanSettings(
+      current.notifications,
+      incoming.notifications,
+      "notifications"
+    ),
+  };
+}
+
+class ManagerRepository {
   /**
    * Obter estatísticas resumidas do painel administrativo
    */
@@ -424,37 +619,57 @@ class ManagerRepository {
   }
 
   /**
-   * Obter configurações do sistema (mockado)
-   */
+ * Obter configurações persistidas do sistema.
+ */
   static async getSystemSettings() {
-    return this.systemSettings;
+    const existingSettings = await db("system_settings")
+      .where({ id: SYSTEM_SETTINGS_ID })
+      .first();
+  
+    if (existingSettings) {
+      return mapSystemSettingsRow(existingSettings);
+    }
+  
+    await db("system_settings").insert({
+      id: SYSTEM_SETTINGS_ID,
+      app_name: DEFAULT_SYSTEM_SETTINGS.appName,
+      version: DEFAULT_SYSTEM_SETTINGS.version,
+      features: JSON.stringify(DEFAULT_SYSTEM_SETTINGS.features),
+      security: JSON.stringify(DEFAULT_SYSTEM_SETTINGS.security),
+      notifications: JSON.stringify(DEFAULT_SYSTEM_SETTINGS.notifications),
+      created_at: db.fn.now(),
+      updated_at: db.fn.now(),
+    });
+  
+    return DEFAULT_SYSTEM_SETTINGS;
   }
-
+  
   /**
-   * Atualizar configurações do sistema (mockado)
+   * Atualizar configurações persistidas do sistema.
    */
-  static async updateSystemSettings(settings: Record<string, any>) {
-    this.systemSettings = {
-      ...this.systemSettings,
-      ...settings,
-      features: {
-        ...this.systemSettings.features,
-        ...(settings.features || {}),
-      },
-      security: {
-        ...this.systemSettings.security,
-        ...(settings.security || {}),
-      },
-      notifications: {
-        ...this.systemSettings.notifications,
-        ...(settings.notifications || {}),
-      },
-    };
-    return {
-      success: true,
-      message: "Configurações atualizadas com sucesso",
-      settings: this.systemSettings,
-    };
+  static async updateSystemSettings(settings: unknown) {
+    const currentSettings = await this.getSystemSettings();
+    const nextSettings = mergeSystemSettings(currentSettings, settings);
+  
+    const updatedRows = await db("system_settings")
+      .where({ id: SYSTEM_SETTINGS_ID })
+      .update({
+        app_name: nextSettings.appName,
+        version: nextSettings.version,
+        features: JSON.stringify(nextSettings.features),
+        security: JSON.stringify(nextSettings.security),
+        notifications: JSON.stringify(nextSettings.notifications),
+        updated_at: db.fn.now(),
+      })
+      .returning("*");
+    
+    const updatedRow = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
+    
+    if (!updatedRow) {
+      return nextSettings;
+    }
+  
+    return mapSystemSettingsRow(updatedRow);
   }
 }
 
