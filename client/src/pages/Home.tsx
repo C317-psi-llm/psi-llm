@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-
-import api from "../hooks/useApi";
+import { getStoredUser } from "../auth/auth";
 import DashboardCard from "../components/DashboardCard";
 import ProgressBar from "../components/ProgressBar";
 import DashboardLayout from "../layouts/DashboardLayout";
+import api from "../hooks/useApi";
+import {
+  usePatientInsights,
+  type PatientInsight,
+} from "../hooks/useApi/useInsights";
 
 type ActionCardData = {
   description: ReactNode;
@@ -38,7 +42,7 @@ const actionCards: ActionCardData[] = [
   {
     id: "check-in",
     title: "Fazer Check-in",
-    description: <>Responder question&aacute;rio de bem estar</>,
+    description: <>Responder questionário de bem estar</>,
     href: "/patient/questionario",
     marker: "01",
   },
@@ -52,7 +56,7 @@ const actionCards: ActionCardData[] = [
   {
     id: "insights",
     title: "Insights",
-    description: <>Ver recomenda&ccedil;&otilde;es personalizadas</>,
+    description: <>Ver recomendações personalizadas</>,
     href: "/patient/insights",
     marker: "03",
   },
@@ -62,13 +66,19 @@ const metricDefinitions = [
   { id: "estresse", label: "Estresse" },
   { id: "ansiedade", label: "Ansiedade" },
   { id: "burnout", label: "Burnout" },
-  { id: "depressao", label: <>Depress&atilde;o</> },
+  { id: "depressao", label: <>Depressão</> },
 ];
 
 export default function Home() {
   const [history, setHistory] = useState<DashboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    data: insights,
+    loading: isLoadingInsights,
+    error: insightsError,
+  } = usePatientInsights();
 
   useEffect(() => {
     async function fetchHistory() {
@@ -77,14 +87,18 @@ export default function Home() {
 
       try {
         const res = await api("/questionnaires/responses/history?days=30");
+
         if (!res.ok) {
           const body = await res.json().catch(() => null);
           throw new Error(body?.message || "Erro ao carregar resultados");
         }
+
         const json = await res.json();
         setHistory(json?.data ?? []);
-      } catch (err: any) {
-        setError(err?.message ?? "Erro ao carregar resultados");
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Erro ao carregar resultados",
+        );
       } finally {
         setIsLoading(false);
       }
@@ -93,14 +107,21 @@ export default function Home() {
     fetchHistory();
   }, []);
 
+  const storedUser = getStoredUser();
+  const patientName = getFirstName(storedUser?.nome);
+
   const latestEntry = history[0];
+  const latestInsight = insights[0] ?? null;
   const streakDays = useMemo(() => computeStreak(history), [history]);
+
   const summaryLabel = latestEntry?.classificacao_geral ?? "Nenhum check-in";
 
   const metrics = useMemo(() => {
     const hasEntry = Boolean(latestEntry);
+
     return metricDefinitions.map((metric) => {
       let value = 0;
+
       if (latestEntry) {
         switch (metric.id) {
           case "estresse":
@@ -129,14 +150,44 @@ export default function Home() {
   }, [latestEntry]);
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Home">
       <div className="space-y-8">
-        <HomeHeader currentDate={formatCurrentDate()} streakDays={streakDays} />
-        <ActionCardsGrid cards={actionCards} />
+        <HomeHeader
+          currentDate={formatCurrentDate()}
+          streakDays={streakDays}
+          userName={patientName}
+        />
 
-        <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+        {isLoading && (
+          <DashboardCard>
+            <p className="text-sm text-gray-500">
+              Carregando dados do painel...
+            </p>
+          </DashboardCard>
+        )}
+
+        {error && (
+          <DashboardCard>
+            <p className="text-sm text-rose-700">{error}</p>
+          </DashboardCard>
+        )}
+
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
           <WellbeingStatusCard metrics={metrics} summaryLabel={summaryLabel} />
-          <LatestInsightCard isLoading={isLoading} error={error} />
+          <LatestInsightCard
+            error={insightsError}
+            insight={latestInsight}
+            isLoading={isLoadingInsights}
+          />
+        </section>
+
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <StreakCard streakDays={streakDays} />
+
+          <DashboardCard>
+            <SectionTitle>Ações rápidas</SectionTitle>
+            <ActionCardsGrid cards={actionCards} />
+          </DashboardCard>
         </section>
       </div>
     </DashboardLayout>
@@ -146,19 +197,28 @@ export default function Home() {
 type HomeHeaderProps = {
   currentDate: string;
   streakDays: number;
+  userName: string;
 };
 
-function HomeHeader({ currentDate, streakDays }: HomeHeaderProps) {
+function HomeHeader({ currentDate, streakDays, userName }: HomeHeaderProps) {
   return (
-    <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <header className="flex flex-col gap-5 rounded-3xl bg-linear-to-br from-[#2F8F7B] to-[#54b69f] p-7 text-white shadow-sm sm:p-8 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-950">
-          Ol&aacute; Ana
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/75">
+          Painel do paciente
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+          Olá, {userName}
         </h1>
-        <p className="mt-2 text-sm font-medium text-gray-500">{currentDate}</p>
+        <p className="mt-3 text-sm text-white/80">{currentDate}</p>
       </div>
 
-      <StreakCard streakDays={streakDays} />
+      <div className="rounded-2xl bg-white/15 px-5 py-4 ring-1 ring-white/20">
+        <p className="text-sm text-white/75">Sequência atual</p>
+        <p className="mt-1 text-2xl font-semibold">
+          {streakDays > 0 ? `${streakDays} dias` : "Sem sequência"}
+        </p>
+      </div>
     </header>
   );
 }
@@ -169,22 +229,26 @@ type StreakCardProps = {
 
 function StreakCard({ streakDays }: StreakCardProps) {
   const isActive = streakDays > 0;
+
   return (
-    <DashboardCard className="flex w-full items-center gap-3 border-emerald-100 px-4 py-3 sm:w-auto">
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
-        <StreakIcon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-gray-950">
-          {isActive
-            ? `${streakDays} dias consecutivos`
-            : "Nenhum check-in recente"}
-        </p>
-        <p className="mt-0.5 text-xs text-gray-500">
-          {isActive
-            ? "Sequência ativa"
-            : "Responda um questionário para começar"}
-        </p>
+    <DashboardCard>
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+          <StreakIcon className="h-6 w-6" />
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-gray-950">
+            {isActive
+              ? `${streakDays} dias consecutivos`
+              : "Nenhum check-in recente"}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-gray-500">
+            {isActive
+              ? "Sequência ativa"
+              : "Responda um questionário para começar"}
+          </p>
+        </div>
       </div>
     </DashboardCard>
   );
@@ -196,11 +260,11 @@ type ActionCardsGridProps = {
 
 function ActionCardsGrid({ cards }: ActionCardsGridProps) {
   return (
-    <section className="grid gap-5 md:grid-cols-3">
+    <div className="mt-5 grid gap-4 md:grid-cols-3">
       {cards.map((card) => (
         <ActionCard key={card.id} card={card} />
       ))}
-    </section>
+    </div>
   );
 }
 
@@ -212,14 +276,18 @@ function ActionCard({ card }: ActionCardProps) {
   return (
     <Link
       to={card.href}
-      className="group rounded-2xl bg-[#2F8F7B] p-6 text-white shadow-sm transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+      className="group rounded-2xl border border-gray-100 bg-slate-50 p-5 transition duration-200 hover:-translate-y-0.5 hover:border-emerald-100 hover:bg-white hover:shadow-sm"
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-sm font-semibold">
+      <span className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-600">
         {card.marker}
-      </div>
-      <h2 className="mt-8 text-xl font-semibold">{card.title}</h2>
-      <p className="mt-2 text-sm leading-6 text-white/80">{card.description}</p>
-      <span className="mt-6 inline-flex text-sm font-medium text-white/90 transition-transform duration-200 group-hover:translate-x-1">
+      </span>
+      <h3 className="mt-4 text-base font-semibold text-gray-950">
+        {card.title}
+      </h3>
+      <p className="mt-2 text-sm leading-6 text-gray-500">
+        {card.description}
+      </p>
+      <span className="mt-5 inline-flex text-sm font-semibold text-emerald-700 transition group-hover:text-emerald-800">
         Acessar
       </span>
     </Link>
@@ -237,10 +305,16 @@ function WellbeingStatusCard({
 }: WellbeingStatusCardProps) {
   return (
     <DashboardCard>
-      <SectionTitle>Status de Bem-estar</SectionTitle>
-      <p className="mt-2 text-sm text-gray-500">
-        Classificação atual: {summaryLabel}
-      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-950">
+            Status de Bem-estar
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Classificação atual: {summaryLabel}
+          </p>
+        </div>
+      </div>
 
       <div className="mt-6 space-y-5">
         {metrics.map((metric) => (
@@ -258,16 +332,23 @@ function WellbeingStatusCard({
 }
 
 type LatestInsightCardProps = {
-  isLoading: boolean;
   error: string | null;
+  insight: PatientInsight | null;
+  isLoading: boolean;
 };
 
-function LatestInsightCard({ isLoading, error }: LatestInsightCardProps) {
+function LatestInsightCard({
+  error,
+  insight,
+  isLoading,
+}: LatestInsightCardProps) {
   if (isLoading) {
     return (
       <DashboardCard>
-        <SectionTitle>&Uacute;ltimo Insight</SectionTitle>
-        <div className="mt-4 text-sm text-gray-500">Carregando dados...</div>
+        <h2 className="text-lg font-semibold text-gray-950">Último Insight</h2>
+        <p className="mt-4 text-sm leading-6 text-gray-500">
+          Carregando insight mais recente...
+        </p>
       </DashboardCard>
     );
   }
@@ -275,29 +356,55 @@ function LatestInsightCard({ isLoading, error }: LatestInsightCardProps) {
   if (error) {
     return (
       <DashboardCard>
-        <SectionTitle>&Uacute;ltimo Insight</SectionTitle>
-        <p className="mt-4 text-sm leading-6 text-red-600">{error}</p>
+        <h2 className="text-lg font-semibold text-gray-950">Último Insight</h2>
+        <p className="mt-4 text-sm leading-6 text-rose-700">{error}</p>
+      </DashboardCard>
+    );
+  }
+
+  if (!insight) {
+    return (
+      <DashboardCard>
+        <h2 className="text-lg font-semibold text-gray-950">Último Insight</h2>
+        <p className="mt-4 text-sm leading-6 text-gray-500">
+          Nenhum insight disponível no momento. Quando houver novos registros de
+          acompanhamento, eles aparecerão aqui.
+        </p>
+        <Link
+          to="/patient/insights"
+          className="mt-5 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+        >
+          Ver página de insights
+        </Link>
       </DashboardCard>
     );
   }
 
   return (
     <DashboardCard>
-      <SectionTitle>&Uacute;ltimo Insight</SectionTitle>
-      <p className="mt-4 text-sm leading-6 text-gray-500">
-        Seus registros recentes indicam que pequenas pausas durante o dia podem
-        ajudar a reduzir picos de estresse e melhorar sua clareza mental no fim
-        da tarde.
-      </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-950">
+            Último Insight
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {formatInsightDate(insight.criado_em)}
+          </p>
+        </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <InsightTag>Respira&ccedil;&atilde;o</InsightTag>
-        <InsightTag>Pausas ativas</InsightTag>
+        <div className="flex flex-wrap gap-2">
+          <InsightTag>{formatInsightSeverity(insight.seriedade)}</InsightTag>
+          <InsightTag>{formatInsightOrigin(insight.origem)}</InsightTag>
+        </div>
       </div>
+
+      <p className="mt-5 text-sm leading-7 text-gray-600">
+        {insight.conteudo}
+      </p>
 
       <Link
         to="/patient/insights"
-        className="mt-6 inline-flex w-full items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-200 hover:border-blue-600 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:w-auto"
+        className="mt-6 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
       >
         Ver todos os insights
       </Link>
@@ -319,7 +426,7 @@ type InsightTagProps = {
 
 function InsightTag({ children }: InsightTagProps) {
   return (
-    <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
       {children}
     </span>
   );
@@ -332,22 +439,15 @@ type IconProps = {
 function StreakIcon({ className = "" }: IconProps) {
   return (
     <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
       aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
     >
       <path
-        d="M12 3v18m0-18c-4.5 2.7-6.8 6.1-6.8 10.2A6.8 6.8 0 0 0 12 20m0-17c4.5 2.7 6.8 6.1 6.8 10.2A6.8 6.8 0 0 1 12 20"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8.8 12.4 11 14.6l4.3-5"
-        stroke="currentColor"
-        strokeWidth="1.8"
+        d="M12 3.5c2.1 2.6 3.2 4.7 3.2 6.5 0 .8-.2 1.5-.5 2.1 1.6-.6 2.8-1.7 3.6-3.2 1 1.6 1.5 3.2 1.5 4.8 0 4-3.3 6.8-7.8 6.8S4.2 17.7 4.2 13.7c0-2.3 1.1-4.4 3.2-6.3.2 1.9.9 3.3 2.1 4.2-.3-2.9.5-5.6 2.5-8.1Z"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -396,7 +496,8 @@ function computeStreak(history: DashboardEntry[]) {
     }
 
     const diff = Math.round(
-      (previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24),
+      (previousDate.getTime() - currentDate.getTime()) /
+        (1000 * 60 * 60 * 24),
     );
 
     if (diff === 0) {
@@ -413,4 +514,38 @@ function computeStreak(history: DashboardEntry[]) {
   }
 
   return streak;
+}
+
+function getFirstName(name?: string) {
+  if (!name?.trim()) return "paciente";
+
+  return name.trim().split(/\s+/)[0];
+}
+
+function formatInsightOrigin(origin: PatientInsight["origem"]) {
+  return origin === "ia" ? "IA" : "Manual";
+}
+
+function formatInsightSeverity(severity: PatientInsight["seriedade"]) {
+  const labels: Record<PatientInsight["seriedade"], string> = {
+    alerta: "Atenção",
+    bom: "Melhora",
+    padrao: "Estável",
+  };
+
+  return labels[severity] ?? "Insight";
+}
+
+function formatInsightDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Data indisponível";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
