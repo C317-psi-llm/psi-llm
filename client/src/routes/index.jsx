@@ -16,6 +16,7 @@ import Login from "../pages/Login";
 import AnalyticsEquipe from "../modules/manager/pages/AnalyticsEquipe";
 import ManagerAlertas from "../modules/manager/pages/Alertas";
 import ManagerConfiguracoes from "../modules/manager/pages/Configuracoes";
+import ManagerPatientDetails from "../modules/manager/pages/PatientDetails";
 import ManagerPacientes from "../modules/manager/pages/Pacientes";
 import ManagerPainelGeral from "../modules/manager/pages/PainelGeral";
 import PrivacidadeDados from "../modules/manager/pages/PrivacidadeDados";
@@ -129,6 +130,10 @@ export default function AppRoutes() {
         <Route
           path="/manager/pacientes"
           element={guardManager(<ManagerPacientes />)}
+        />
+        <Route
+          path="/manager/pacientes/:id"
+          element={guardManager(<ManagerPatientDetails />)}
         />
         <Route
           path="/manager/analytics"

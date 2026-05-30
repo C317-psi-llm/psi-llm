@@ -190,7 +190,6 @@ export default function Questionario() {
             <QuestionStep
               key={currentQuestionIndex}
               answers={answers}
-              currentQuestionIndex={currentQuestionIndex}
               isTransitioning={isTransitioning}
               onSelectAnswer={handleAnswerSelect}
               question={flattenQuestions[currentQuestionIndex]}
@@ -204,7 +203,6 @@ export default function Questionario() {
 
 type QuestionStepProps = {
   answers: Record<string, number>;
-  currentQuestionIndex: number;
   isTransitioning: boolean;
   onSelectAnswer: (value: number) => void;
   question?: any;
@@ -212,7 +210,6 @@ type QuestionStepProps = {
 
 function QuestionStep({
   answers,
-  currentQuestionIndex,
   isTransitioning,
   onSelectAnswer,
   question,

@@ -1,132 +1,53 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import DashboardCard from '../../../components/DashboardCard'
+import Snackbar from '../../../components/Snackbar'
 import StatusBadge from '../../../components/StatusBadge'
+import {
+  useManagerAlerts,
+  type ManagerAlert,
+} from '../../../hooks/useApi/useManager'
 import ManagerLayout from './ManagerLayout'
 
-type AlertPriority = 'Alta' | 'Media'
-type AlertStatus = 'Ativo' | 'Resolvido'
-type AlertFilter = 'Ativos' | 'Resolvidos' | 'Todos'
-
-type ManagerAlert = {
-  actions: string[]
-  date: string
-  department: string
-  description: ReactNode
-  duration: string
-  id: string
-  note: ReactNode
-  priority: AlertPriority
-  rule: ReactNode
-  status: AlertStatus
-  threshold: string
-  title: string
-  value: string
-}
-
-const summaryCards = [
-  {
-    id: 'high',
-    label: 'Alta prioridade',
-    value: '4',
-    className: 'text-rose-600',
-  },
-  {
-    id: 'medium',
-    label: <>Prioridade m&eacute;dia</>,
-    value: '7',
-    className: 'text-amber-600',
-  },
-  {
-    id: 'resolved',
-    label: 'Resolvidos',
-    value: '12',
-    className: 'text-emerald-700',
-  },
-]
+type AlertFilter = 'Todos' | 'Ativos' | 'Resolvidos'
 
 const filterTabs: AlertFilter[] = ['Todos', 'Ativos', 'Resolvidos']
 
-const alerts: ManagerAlert[] = [
-  {
-    id: 'engineering-burnout',
-    priority: 'Alta',
-    status: 'Ativo',
-    date: '26 abr 2026',
-    title: 'Risco elevado persistente - Engenharia',
-    department: 'Engenharia',
-    description:
-      'O indicador medio de burnout do departamento de Engenharia esta acima do limiar definido para acompanhamento gerencial.',
-    rule: <>Indicador &ge; 2.8 por 3 ou mais semanas consecutivas</>,
-    value: '3.1',
-    threshold: '2.8',
-    duration: '3 semanas',
-    actions: [
-      'Verifique sobrecarga de trabalho',
-      'Converse com lideranca tecnica',
-      'Avalie recursos disponiveis',
-    ],
-    note: 'Acoes sugeridas sao orientativas e devem ser avaliadas conforme contexto organizacional.',
-  },
-  {
-    id: 'commercial-stress',
-    priority: 'Media',
-    status: 'Ativo',
-    date: '24 abr 2026',
-    title: 'Aumento de estresse - Comercial',
-    department: 'Comercial',
-    description:
-      'A media de estresse do departamento Comercial subiu nas ultimas semanas e merece acompanhamento preventivo.',
-    rule: <>Indicador &ge; 2.5 por 2 semanas consecutivas</>,
-    value: '2.7',
-    threshold: '2.5',
-    duration: '2 semanas',
-    actions: [
-      'Revise metas do periodo',
-      'Mapeie conflitos recorrentes',
-      'Acompanhe liderancas diretas',
-    ],
-    note: 'Acoes sugeridas sao orientativas e nao substituem avaliacao especializada.',
-  },
-  {
-    id: 'support-engagement',
-    priority: 'Media',
-    status: 'Resolvido',
-    date: '18 abr 2026',
-    title: 'Queda de engajamento - Suporte',
-    department: 'Suporte',
-    description:
-      'A taxa de check-ins do departamento Suporte caiu temporariamente e retornou ao intervalo esperado.',
-    rule: <>Engajamento abaixo de 60% por 7 dias</>,
-    value: '74%',
-    threshold: '60%',
-    duration: '1 semana',
-    actions: [
-      'Manter monitoramento semanal',
-      'Reforcar comunicacao de check-ins',
-      'Avaliar barreiras de preenchimento',
-    ],
-    note: 'Alerta resolvido, manter observacao durante o proximo ciclo.',
-  },
+const actionSuggestions = [
+  'Acionar acompanhamento clinico responsavel',
+  'Verificar recorrencia do sinal nas proximas semanas',
+  'Registrar encaminhamento administrativo',
 ]
 
 export default function ManagerAlertas() {
+  const [page, setPage] = useState(1)
   const [selectedFilter, setSelectedFilter] = useState<AlertFilter>('Todos')
-  const [openAlertId, setOpenAlertId] = useState<string | null>(alerts[0].id)
+  const [openAlertId, setOpenAlertId] = useState<number | null>(null)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' })
+  const { data, loading, error } = useManagerAlerts(page, 10)
 
   const filteredAlerts = useMemo(() => {
-    if (selectedFilter === 'Todos') {
-      return alerts
+    if (!data?.items) return []
+    if (selectedFilter === 'Resolvidos') return []
+    return data.items
+  }, [data?.items, selectedFilter])
+
+  useEffect(() => {
+    if (data?.items.length && openAlertId === null) {
+      setOpenAlertId(data.items[0].id_insight)
     }
+  }, [data?.items, openAlertId])
 
-    return alerts.filter((alert) =>
-      selectedFilter === 'Ativos'
-        ? alert.status === 'Ativo'
-        : alert.status === 'Resolvido',
-    )
-  }, [selectedFilter])
+  useEffect(() => {
+    if (error) {
+      setSnackbar({
+        open: true,
+        message: error || 'Erro ao carregar alertas.',
+      })
+    }
+  }, [error])
 
-  function toggleAlert(alertId: string) {
+  function toggleAlert(alertId: number) {
     setOpenAlertId((currentId) => (currentId === alertId ? null : alertId))
   }
 
@@ -140,9 +61,21 @@ export default function ManagerAlertas() {
         </header>
 
         <section className="grid gap-5 md:grid-cols-3">
-          {summaryCards.map((summary) => (
-            <AlertSummaryCard key={summary.id} summary={summary} />
-          ))}
+          <AlertSummaryCard
+            label="Alertas ativos"
+            value={data?.total ?? 0}
+            className="text-rose-600"
+          />
+          <AlertSummaryCard
+            label="Origem IA"
+            value={countByOrigin(data?.items ?? [], 'ia')}
+            className="text-blue-700"
+          />
+          <AlertSummaryCard
+            label="Origem manual"
+            value={countByOrigin(data?.items ?? [], 'manual')}
+            className="text-emerald-700"
+          />
         </section>
 
         <div className="flex flex-col gap-5">
@@ -152,38 +85,93 @@ export default function ManagerAlertas() {
           />
 
           <section className="rounded-2xl border border-violet-100 bg-violet-50 px-5 py-4 text-sm font-medium leading-6 text-violet-900 shadow-sm">
-            Alertas s&atilde;o baseados em padr&otilde;es agregados da equipe.
-            Nenhum dado individual &eacute; identific&aacute;vel nesta
-            visualiza&ccedil;&atilde;o.
+            Alertas s&atilde;o baseados em sinais registrados por psic&oacute;logos
+            ou pela IA. Nenhum dado sens&iacute;vel &eacute; exibido nesta
+            visualiza&ccedil;&atilde;o gerencial.
           </section>
         </div>
 
-        <section className="space-y-4">
-          {filteredAlerts.map((alert) => (
-            <AlertCard
-              key={alert.id}
-              alert={alert}
-              isOpen={openAlertId === alert.id}
-              onToggle={() => toggleAlert(alert.id)}
-            />
-          ))}
-        </section>
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+
+        {loading && <p className="text-sm text-gray-500">Carregando alertas...</p>}
+
+        {!loading && filteredAlerts.length === 0 && (
+          <DashboardCard>
+            <p className="text-center text-sm text-gray-500">
+              Nenhum alerta encontrado.
+            </p>
+          </DashboardCard>
+        )}
+
+        {!loading && filteredAlerts.length > 0 && (
+          <section className="space-y-4">
+            {filteredAlerts.map((alert) => (
+              <AlertCard
+                key={alert.id_insight}
+                alert={alert}
+                isOpen={openAlertId === alert.id_insight}
+                onToggle={() => toggleAlert(alert.id_insight)}
+              />
+            ))}
+          </section>
+        )}
+
+        {data && data.total > 0 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              P&aacute;gina {page} de {Math.max(1, Math.ceil(data.total / data.limit))}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage(page + 1)}
+                disabled={!data.items || data.items.length < data.limit}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Pr&oacute;xima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      <Snackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        variant="error"
+        onClose={() => setSnackbar({ open: false, message: '' })}
+      />
     </ManagerLayout>
   )
 }
 
 function AlertSummaryCard({
-  summary,
+  className,
+  label,
+  value,
 }: {
-  summary: (typeof summaryCards)[number]
+  className: string
+  label: ReactNode
+  value: number
 }) {
   return (
     <DashboardCard className="p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <p className={`text-4xl font-semibold tracking-tight ${summary.className}`}>
-        {summary.value}
+      <p className={`text-4xl font-semibold tracking-tight ${className}`}>
+        {value}
       </p>
-      <p className="mt-2 text-sm font-medium text-gray-500">{summary.label}</p>
+      <p className="mt-2 text-sm font-medium text-gray-500">{label}</p>
     </DashboardCard>
   )
 }
@@ -228,13 +216,8 @@ function AlertCard({
   isOpen: boolean
   onToggle: () => void
 }) {
-  const borderClassName =
-    alert.priority === 'Alta' ? 'border-l-rose-500' : 'border-l-amber-500'
-
   return (
-    <DashboardCard
-      className={`border-l-4 p-0 transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${borderClassName}`}
-    >
+    <DashboardCard className="border-l-4 border-l-rose-500 p-0 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <button
         type="button"
         className="flex w-full flex-col gap-4 px-5 py-5 text-left md:flex-row md:items-center md:justify-between"
@@ -243,19 +226,17 @@ function AlertCard({
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <PriorityBadge priority={alert.priority} />
+            <StatusBadge variant="attention">Alta</StatusBadge>
             <span className="text-sm font-medium text-gray-400">
-              {alert.date}
+              {formatDate(alert.criado_em)}
             </span>
-            {alert.status === 'Resolvido' && (
-              <StatusBadge variant="improvement">Resolvido</StatusBadge>
-            )}
+            <StatusBadge variant="stable">{formatOrigin(alert.origem)}</StatusBadge>
           </div>
           <h2 className="mt-3 text-lg font-semibold text-gray-950">
-            {alert.title}
+            {alert.usuario_nome || 'Paciente sem identificacao'}
           </h2>
           <p className="mt-1 text-sm font-medium text-gray-500">
-            Departamento: {alert.department}
+            Respons&aacute;vel: {alert.psicologo_nome || 'Nao atribuido'}
           </p>
         </div>
 
@@ -280,65 +261,33 @@ function AlertCard({
             <div className="grid gap-6 xl:grid-cols-[1fr_0.85fr]">
               <div className="space-y-6">
                 <InfoBlock title="Descri&ccedil;&atilde;o">
-                  {alert.description}
+                  {alert.conteudo}
                 </InfoBlock>
-                <InfoBlock title="Regra de disparo">{alert.rule}</InfoBlock>
-                <InfoBlock title="Nota">{alert.note}</InfoBlock>
+                <InfoBlock title="Regra de disparo">
+                  Insight classificado com seriedade de alerta.
+                </InfoBlock>
               </div>
 
-              <div className="space-y-6">
-                <section className="rounded-xl border border-gray-100 bg-slate-50 p-5">
-                  <h3 className="text-sm font-semibold text-gray-950">
-                    M&eacute;tricas
-                  </h3>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                    <MetricItem
-                      label="Valor atual"
-                      tone="danger"
-                      value={alert.value}
-                    />
-                    <MetricItem
-                      label="Limiar"
-                      tone="warning"
-                      value={alert.threshold}
-                    />
-                    <MetricItem
-                      label="Dura&ccedil;&atilde;o"
-                      tone="neutral"
-                      value={alert.duration}
-                    />
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-gray-100 bg-slate-50 p-5">
-                  <h3 className="text-sm font-semibold text-gray-950">
-                    Sugest&otilde;es de a&ccedil;&atilde;o
-                  </h3>
-                  <ul className="mt-4 space-y-2">
-                    {alert.actions.map((action) => (
-                      <li
-                        key={action}
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm font-medium text-gray-600 shadow-sm"
-                      >
-                        {action}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              </div>
+              <section className="rounded-xl border border-gray-100 bg-slate-50 p-5">
+                <h3 className="text-sm font-semibold text-gray-950">
+                  Sugest&otilde;es de a&ccedil;&atilde;o
+                </h3>
+                <ul className="mt-4 space-y-2">
+                  {actionSuggestions.map((action) => (
+                    <li
+                      key={action}
+                      className="rounded-lg bg-white px-3 py-2.5 text-sm font-medium text-gray-600 shadow-sm"
+                    >
+                      {action}
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </div>
           </div>
         </div>
       </div>
     </DashboardCard>
-  )
-}
-
-function PriorityBadge({ priority }: { priority: AlertPriority }) {
-  return (
-    <StatusBadge variant={priority === 'Alta' ? 'attention' : 'stable'}>
-      {formatPriority(priority)}
-    </StatusBadge>
   )
 }
 
@@ -357,37 +306,16 @@ function InfoBlock({
   )
 }
 
-function MetricItem({
-  label,
-  tone,
-  value,
-}: {
-  label: ReactNode
-  tone: 'danger' | 'neutral' | 'warning'
-  value: ReactNode
-}) {
-  const toneClassName = {
-    danger: 'border-rose-100 bg-rose-50 text-rose-700',
-    neutral: 'border-blue-100 bg-blue-50 text-blue-700',
-    warning: 'border-amber-100 bg-amber-50 text-amber-700',
-  }[tone]
-
-  return (
-    <div
-      className={`rounded-xl border px-4 py-4 shadow-sm ${toneClassName}`}
-    >
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
-    </div>
-  )
+function countByOrigin(alerts: ManagerAlert[], origin: string) {
+  return alerts.filter((alert) => alert.origem === origin).length
 }
 
-function formatPriority(priority: AlertPriority) {
-  if (priority === 'Media') {
-    return 'M\u00e9dia'
-  }
+function formatOrigin(origin: string) {
+  return origin === 'ia' ? 'IA' : 'Manual'
+}
 
-  return priority
+function formatDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('pt-BR')
 }
