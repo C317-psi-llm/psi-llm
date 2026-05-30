@@ -6,6 +6,7 @@ import {
   createInsight,
   deleteInsight,
   listInsights,
+  listMyInsights,
   updateInsight,
 } from "../../controllers/insights.controller";
 import {
@@ -16,11 +17,23 @@ import {
 } from "../../validators/insights.validator";
 
 const router = Router();
-const guards = [authenticate, requireLgpdAccepted, authorize("psicologo")];
+const psychologistGuards = [
+  authenticate,
+  requireLgpdAccepted,
+  authorize("psicologo"),
+];
 
-router.get("/", ...guards, listInsightsQueryValidator, listInsights);
-router.post("/", ...guards, createInsightValidator, createInsight);
-router.put("/:id", ...guards, updateInsightValidator, updateInsight);
-router.delete("/:id", ...guards, idParamValidator, deleteInsight);
+const patientGuards = [
+  authenticate,
+  requireLgpdAccepted,
+  authorize("funcionario"),
+];
+
+router.get("/me", ...patientGuards, listMyInsights);
+
+router.get("/", ...psychologistGuards, listInsightsQueryValidator, listInsights);
+router.post("/", ...psychologistGuards, createInsightValidator, createInsight);
+router.put("/:id", ...psychologistGuards, updateInsightValidator, updateInsight);
+router.delete("/:id", ...psychologistGuards, idParamValidator, deleteInsight);
 
 export default router;

@@ -16,6 +16,10 @@ class InsightsService {
     return patient;
   }
 
+  static async listForPatient(id_usuario: number) {
+    return InsightsRepository.listByUsuario(id_usuario);
+  }
+
   static async list(id_usuario: number, psicologoId: number) {
     await this.assertAssigned(id_usuario, psicologoId);
     return InsightsRepository.listByUsuario(id_usuario);
