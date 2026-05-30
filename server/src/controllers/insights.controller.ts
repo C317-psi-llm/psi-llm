@@ -15,6 +15,19 @@ export async function listInsights(req: Request, res: Response) {
   }
 }
 
+export async function listMyInsights(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user.id_usuario;
+    const rows = await InsightsService.listForPatient(userId);
+
+    res.json(success(rows));
+  } catch (err: any) {
+    res
+      .status(err.status || 500)
+      .json(fail(err.message || "Error listing patient insights"));
+  }
+}
+
 export async function createInsight(req: Request, res: Response) {
   try {
     const psicologoId = (req as any).user.id_usuario;
