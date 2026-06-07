@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["cypress", "vite/client"]
+  },
+  "include": ["cypress/**/*.ts", "cypress/**/*.tsx", "cypress/**/*.js"]
+}
